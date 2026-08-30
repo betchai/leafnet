@@ -1,4 +1,4 @@
-## What is LEAFNET?
+# 🍃 Mulberry Leaf Intelligence (LEAFNET)
 
 LEAFNET (Mulberry Leaf Intelligence) is a full-stack machine-learning
 application that visually classifies mulberry leaf health into four classes —
@@ -7,26 +7,29 @@ as a masteral research project across ten disciplined phases: research data
 foundation → MobileNetV2 transfer learning → formal evaluation → inference
 service → application → feedback/monitoring → hardening.
 
-**Status:** system complete and verified; the research dataset (11 of 2,000
-target images) is still being acquired, so model metrics to date are
-pilot-scale and honestly labeled as such. See `docs/PHASE_10_STATUS.md`.
+Built as a real app, not a throwaway notebook: dataset management, model
+versioning, prediction with calibrated confidence scores, and human feedback
+that feeds future retraining.
 
-# 🍃 Mulberry Leaf Intelligence
+## Status
 
-A learning-oriented, production-style ML application that classifies the
-health condition of mulberry leaves from photographs — built as a real app,
-not a throwaway notebook.
+🟢 **System complete and verified end-to-end.**
 
-## What problem does it solve?
+- **Dataset:** V1.0 — 2,000 images, 500 per class, all expert-approved
+  (preliminary annotate → expert confirm, full audit trail).
+- **Active model:** `V1.0_r2_EXP-V1.0-FT` (MobileNetV2 fine-tune) — lifecycle
+  `active`, serving live predictions.
+- **Evaluation** (test n=200): accuracy **0.845**, macro F1 **0.85**.
+- **Explainability:** input-gradient saliency (`POST /explain`) rendered as a
+  "why did it say that?" heatmap in the Analyzer.
+- **Full pipeline exercised:** intake → validate → classify → expert review →
+  split → train → evaluate → register → activate, with monitoring and feedback.
 
-Mulberry growers need to quickly identify unhealthy leaves (disease,
-nutrient deficiency, physical damage). This project builds a supervised image
-classifier and wraps it in a full application: dataset management, model
-versioning, prediction with confidence scores, and human feedback that feeds
-future retraining.
-
-> **Current status: scaffold only.** No dataset exists, no model has been
-> trained, no metrics exist. Everything unfinished is clearly marked.
+> **Honest caveats:** zero dataset rows carry grouping keys, so a truly grouped
+> (leaf-correlated) split is impossible — all models are labeled **PILOT** and
+> metrics "carry no statistical significance at this size" (**n=200**). The
+> classifier is **single-label** (4-way softmax); it does not detect
+> co-infections. See `docs/PHASE_10_STATUS.md`.
 
 ## Architecture
 
@@ -37,11 +40,14 @@ React Frontend (apps/web)
 Node.js API (apps/api) ── Prisma ──► PostgreSQL
         │  HTTP only (ML_SERVICE_URL)
         ▼
-Python ML Service (ml/src/inference) ──► PyTorch Model
+Python ML Service (ml/src/inference, FastAPI) ──► PyTorch Model
 ```
 
 The frontend never talks to Python directly; the API never spawns Python.
 See [docs/architecture.md](docs/architecture.md).
+
+ML service endpoints (`:8000`): `GET /health`, `GET /model`,
+`POST /predict`, `POST /explain` (saliency heatmap), `POST /predict/batch`.
 
 ## Project structure
 
@@ -50,19 +56,16 @@ See [docs/architecture.md](docs/architecture.md).
 │   ├── web/          React + Vite + Tailwind frontend
 │   └── api/          Express + TypeScript + Prisma REST API
 ├── ml/               Independent Python ML layer
-│   ├── data/         raw / processed / train / validation / test (gitignored)
-│   ├── models/       versioned model artifacts (v0.1, …)
-│   ├── notebooks/    exploration
-│   ├── src/config/   classes.json + pipeline.json (change behavior here)
+│   ├── data/         incoming / validated / prepared split manifests
+│   ├── models/       versioned model artifacts (gitignored; see active.json)
+│   ├── reports/      evaluation metrics, confusion matrices, saliency
+│   ├── src/config/   classes.json + training.json + pipeline.json
 │   ├── src/data/     ingestion, validation, dedup, splitting, statistics
-│   ├── src/preprocessing/
-│   ├── src/training/
+│   ├── src/training/ MobileNetV2 transfer-learning (LeafNet)
 │   ├── src/evaluation/
-│   ├── src/inference/  future FastAPI service boundary
-│   └── scripts/
+│   └── src/inference/ FastAPI service: predict, explain (saliency), model_loader
 ├── prisma/schema.prisma
-├── docs/             architecture, dataset design, ML roadmap, model card template
-├── scripts/
+├── docs/             phase reports, architecture, dataset, lifecycle, deployment
 └── .env.example
 ```
 
@@ -71,7 +74,7 @@ See [docs/architecture.md](docs/architecture.md).
 - **Frontend:** TypeScript, React, Tailwind CSS (responsive)
 - **API:** Node.js + TypeScript + Express + Prisma ORM
 - **Database:** PostgreSQL
-- **ML:** Python 3.11+, PyTorch, torchvision, OpenCV, Pillow, NumPy, pandas, scikit-learn
+- **ML:** Python 3.11+, PyTorch, torchvision, Pillow, NumPy, pandas, scikit-learn, FastAPI, matplotlib (saliency rendering)
 
 ## Local development setup
 
@@ -89,13 +92,26 @@ npm install               # installs web + api workspaces
 npm run db:migrate        # creates tables from prisma/schema.prisma
 ```
 
-### 3. Start the API (port 4000)
+### 3. Start the ML service (port 8000)
+
+```bash
+cd ml
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+python -m uvicorn src.api.main:app --port 8000
+```
+
+The service loads the model named in `ml/models/active.json`. Note: it has no
+`--reload`; restarting it also stops any running pipeline job (jobs run in the
+same process).
+
+### 4. Start the API (port 4000)
 
 ```bash
 npm run dev:api
 ```
 
-### 4. Start the frontend (port 5173)
+### 5. Start the frontend (port 5173)
 
 ```bash
 npm run dev:web
@@ -103,42 +119,47 @@ npm run dev:web
 
 Open http://localhost:5173 — the Vite dev server proxies `/api/*` to the API.
 
-### 5. Python ML environment (for later phases)
+## Web application
 
-```bash
-cd ml
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-```
+- **Analyzer** — upload a leaf photo, get a 4-class prediction with confidence,
+  per-class probabilities, margin, and a **"Why did the model say this?"**
+  saliency heatmap vs. the runner-up class. Send agree/disagree/unsure feedback.
+- **Insights** — confusion matrix, per-class precision/recall/F1, difficult cases.
+- **Models** — model registry with lifecycle
+  (experimental → evaluated → candidate → approved → active).
+- **Dataset / Dashboard** — approval coverage and per-class counts.
+- **Tools** — bulk ingest, labeling, review, feedback review, monitoring,
+  pipeline runner (baseline + fine-tune experiments with live epoch progress),
+  and phase-2 data-quality checks.
 
-## Model architecture
+## Model lifecycle & review
 
-How MobileNetV2 transfer learning is implemented, where the code lives, and the
-end-to-end data flow: see `docs/model-architecture.md`.
+- Every prediction ships a confidence and a recommended-review flag
+  (`confidence < 0.50`) — never an automatic verdict. An expert decides.
+- Model registration records accuracy, F1, confusion matrix, and an integrity
+  audit; only an expert can promote a model to `active`.
+- Ground-truth labels come only from humans; the full annotation audit trail
+  (`preliminary_annotate` → `review_confirm`) is stored per image.
 
-## Planned ML workflow
+## Current limitations (honest)
 
-Raw images → validation → deduplication → preprocessing → stratified
-train/validation/test split → augmentation → transfer-learning training
-(MobileNet/EfficientNet via a swappable `Model` abstraction) → evaluation →
-versioned deployment → predictions → user feedback → continuous improvement.
-Details: [docs/ml-roadmap.md](docs/ml-roadmap.md).
-
-## Current limitations (intentional)
-
-- ❌ Image upload endpoint not implemented (`POST /api/images` → 501)
-- ❌ No ML inference service; predictions return 503 placeholders
-- ❌ No dataset collected or labeled
-- ❌ No trained models or evaluation metrics anywhere
-- ✅ Class definitions are conceptual, config-driven, and changeable
+- ☐ **PILOT-grade models** — no grouped split possible (no group keys in the
+  dataset), so split leakage between leaves cannot be excluded.
+- ☐ **Statistical significance** — test n=200 is the research target, but
+  metrics at this size are formally computed, not statistically proven.
+- ☐ **Single-label only** — softmax is exclusive (classes sum to 1); the system
+  cannot classify a co-infection. Multi-label support is a known future change
+  (taxonomy + re-annotation + sigmoid head).
+- ☐ **Confidence ≠ calibration** — probabilities reflect the model's score
+  distribution, not true likelihood of correctness.
+- ✅ Four-class taxonomy is config-driven
+  (`ml/src/config/classes.json`; changing it requires methodology approval).
 
 ## Development principles
 
 No fabricated predictions/metrics/datasets · unfinished features stay visible
 · clear TODO(phase:) markers · modular ML code · strict separation between
 frontend, backend, and ML · strong typing · simple architecture first.
-
 
 ## Documentation
 
@@ -153,5 +174,5 @@ frontend, backend, and ML · strong typing · simple architecture first.
 | Deployment & checklist | `docs/deployment.md`, `docs/deployment-checklist.md` |
 | Reproducibility & limitations | `docs/reproducibility.md`, `docs/limitations.md` |
 | Research handoff | `research-handoff/README.md`, `docs/research-traceability-matrix.md`, `docs/manuscript-implementation-check.md` |
-| Phase reports | `docs/PHASE_{1..10}_STATUS.md` |
+| Phase reports | `docs/PHASE_{1..10}_STATUS.md`, `docs/PHASE_10_FINAL_STATUS.md` |
 | Operating guides | `BULK_UPLOAD.MD`, `decom_beta.md` |
