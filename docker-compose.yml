@@ -1,0 +1,45 @@
+# Development full-stack: PostgreSQL + ML service + Node API.
+# Frontend runs via `npm run dev:web` outside Docker (Vite dev server).
+# Production: build web (`npm run build --workspace @mulberry/web`) and serve
+# dist/ behind a reverse proxy that also routes /api to the api container.
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: leafnet
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in .env}
+      POSTGRES_DB: mulberry_leaf_intelligence
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U leafnet"]
+      interval: 5s
+      retries: 10
+
+  ml:
+    build:
+      context: .
+      dockerfile: docker/ml.Dockerfile
+    ports:
+      - "8000:8000"
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+    ports:
+      - "4000:4000"
+    environment:
+      DATABASE_URL: postgresql://leafnet:${POSTGRES_PASSWORD}@db:5432/mulberry_leaf_intelligence
+      ML_SERVICE_URL: http://ml:8000
+      UPLOAD_DIRECTORY: /app/uploads
+      WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:5174}
+    volumes:
+      - uploads:/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  uploads:

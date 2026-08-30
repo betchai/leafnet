@@ -1,0 +1,24 @@
+{
+  "datasetTargets": {
+    "totalImages": 2000,
+    "imagesPerClass": {
+      "healthy": 500,
+      "leaf_rust": 500,
+      "leaf_spot": 500,
+      "leaf_blight": 500
+    }
+  },
+  "imageSize": [224, 224],
+  "supportedFormats": ["jpg", "jpeg", "png"],
+  "splitRatios": { "train": 0.8, "validation": 0.1, "test": 0.1 },
+  "randomSeed": 42,
+  "augmentation": {
+    "horizontalFlip": true,
+    "rotationDegrees": 15,
+    "colorJitter": true
+  },
+  "qualityRules": {
+    "minResolutionPx": [800, 800],
+    "seeDocs": "docs/dataset.md#image-quality-rules"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "num_groups": 0,
+  "ungrouped_images": 500,
+  "strategy": "pilot_image_level_split_GROUPING_IGNORED",
+  "seed": 42,
+  "final_counts": {
+    "train": 400,
+    "validation": 50,
+    "test": 50
+  },
+  "excluded_rows": 0,
+  "dataset_id": "cmtf951c9048syc87rv0ti6rb"
+}

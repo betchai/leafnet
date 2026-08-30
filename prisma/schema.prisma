@@ -1,0 +1,311 @@
+// Mulberry Leaf Intelligence (LEAFNET) — database schema.
+//
+// Phase 2 updates:
+// - Approved 4-class taxonomy is enforced via config (ml/src/config/classes.json),
+//   stored as string keys here.
+// - Annotation workflow: UNLABELED → NEEDS_REVIEW → ANNOTATED → EXPERT_REVIEWED
+//   → APPROVED, plus REJECTED / SECOND_OPINION / UNCERTAIN.
+//   An AI prediction can NEVER set these states automatically.
+// - Leakage-prevention grouping: plantId / leafId / farmId / collectionSessionId
+//   so related images stay in the same split (see docs/dataset.md).
+// - Severity as research metadata (0-3), never an ML class in v1.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Dataset {
+  id          String        @id @default(cuid())
+  name        String
+  version     String        @unique
+  description String?
+  status      DatasetStatus @default(DRAFT)
+
+  // Snapshot of composition at version creation (real counts only)
+  totalImages Int?
+  imagesPerClass Json?
+  splitCounts    Json? // { train, validation, test }
+  sources        Json? // provenance references into data-sources registry
+  changesFromPrevious String?
+  knownIssues         String?
+  validationStatus    String?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  images        Image[] @relation("DatasetMembers")
+  modelVersions ModelVersion[]
+
+  @@map("datasets")
+}
+
+model Image {
+  id          String @id @default(cuid())
+  filename    String
+  storagePath String @unique
+  widthPx     Int?
+  heightPx    Int?
+  sizeBytes   Int?
+  // NOT unique: exact duplicates are preserved and flagged via ImageRelation
+  sha256      String?
+
+  // Capture metadata
+  source       String?
+  sourceType   String? // field_photo | lab_scan | external_dataset | web_upload
+  capturedAt   DateTime?
+  capturedTime String?
+  location     String?
+  cultivar     String?
+  leafAge      String?
+  growthStage  String?
+  lightingCondition String?
+  cameraType   String?
+  orientation  String?
+
+  // Leakage-prevention grouping (optional; used by group-aware splitting)
+  plantId             String?
+  leafId              String?
+  farmId              String?
+  collectionSessionId String?
+
+  license String?
+
+  // RESEARCH vs DEVELOPMENT separation: dev fixtures can never count
+  // toward the 2,000-image research target.
+  isDevFixture Boolean @default(false)
+  notes        String?
+  rejectedReason String?
+
+  annotationStatus AnnotationStatus @default(UNLABELED)
+  // Version membership is MANY-TO-MANY so historical dataset versions remain
+  // immutable snapshots when new versions are cut.
+  datasets         Dataset[] @relation("DatasetMembers")
+
+  classifications Classification[]
+  annotations     Annotation[]
+  audits          AnnotationAudit[]
+  relationsA      ImageRelation[] @relation("imageA")
+  relationsB      ImageRelation[] @relation("imageB")
+  predictions     Prediction[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([annotationStatus])
+  @@index([plantId])
+  @@index([leafId])
+  @@index([farmId])
+  @@index([collectionSessionId])
+  @@map("images")
+}
+
+/// Ground-truth classification. The classKey must be one of the four approved
+/// keys from ml/src/config/classes.json: healthy | leaf_rust | leaf_spot | leaf_blight.
+/// Only EXPERT_REVIEWED/APPROVED images may carry confirmed ground truth.
+model Classification {
+  id       String @id @default(cuid())
+  classKey String
+  severity Int? // 0 none | 1 mild | 2 moderate | 3 severe — research metadata only
+  notes    String?
+
+  imageId String
+  image   Image  @relation(fields: [imageId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([imageId]) // single-label v1
+  @@map("classifications")
+}
+
+/// Full audit trail of the human annotation workflow.
+/// AI-generated labels are recorded as Predictions, NEVER as Annotations.
+model Annotation {
+  id         String @id @default(cuid())
+  imageId    String
+  image      Image  @relation(fields: [imageId], references: [id], onDelete: Cascade)
+
+  stage      AnnotationStage
+  preliminaryLabel String?
+  finalLabel       String?
+  severity         Int?
+  confidence       Float? // annotator self-reported confidence 0..1
+  uncertain        Boolean @default(false)
+
+  annotator   String?
+  annotatedAt DateTime?
+  reviewer    String?
+  reviewedAt  DateTime?
+  reviewNotes String?
+
+  datasetVersion String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([imageId])
+  @@index([stage])
+  @@map("annotations")
+}
+
+/// Append-only audit trail. Every annotation/review change appends a row;
+/// history is never silently overwritten (research reproducibility).
+model AnnotationAudit {
+  id            String @id @default(cuid())
+  imageId       String
+  image         Image  @relation(fields: [imageId], references: [id], onDelete: Cascade)
+
+  action        String // ingest | preliminary_annotate | review_confirm | review_relabel | mark_uncertain | reject | second_opinion | status_change
+  previousLabel String?
+  newLabel      String?
+  previousStatus AnnotationStatus?
+  newStatus      AnnotationStatus?
+
+  actor     String
+  actorRole String // annotator | expert | admin | system
+  reason    String?
+
+  createdAt DateTime @default(now())
+
+  @@index([imageId])
+  @@map("annotation_audits")
+}
+
+/// Relationship between potentially related images (exact/near duplicates,
+/// same physical leaf). Flags only — humans resolve; nothing auto-deleted.
+model ImageRelation {
+  id        String @id @default(cuid())
+  imageAId  String
+  imageA    Image  @relation("imageA", fields: [imageAId], references: [id], onDelete: Cascade)
+  imageBId  String
+  imageB    Image  @relation("imageB", fields: [imageBId], references: [id], onDelete: Cascade)
+
+  relationType String // exact_duplicate | near_duplicate | same_leaf_suspected
+  similarity   Float? // 0..1 where applicable
+  resolution   String? @default("") // empty = open, or: same_leaf | distinct | duplicate_removed
+  resolvedBy   String?
+  notes        String?
+
+  createdAt DateTime @default(now())
+
+  @@unique([imageAId, imageBId, relationType])
+  @@map("image_relations")
+}
+
+model ModelVersion {
+  id           String  @id @default(cuid())
+  version      String  @unique
+  architecture String? // e.g. "mobilenet_v2" (approved approach, not yet implemented)
+  datasetId    String?
+  dataset      Dataset? @relation(fields: [datasetId], references: [id])
+
+  artifactPath String?
+  framework    String?
+  trainingDate DateTime?
+  notes        String?
+  isActive     Boolean @default(false)
+  // Model lifecycle: experimental -> evaluated -> candidate -> approved
+  //   -> active -> retired. Only "approved" may become active, via explicit
+  //   human action (see /api/tools/models lifecycle endpoints).
+  lifecycleStatus String @default("experimental")
+
+  accuracy        Float?
+  precision       Float?
+  recall          Float?
+  f1Score         Float?
+  confusionMatrix Json?
+
+  predictions Prediction[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("model_versions")
+}
+
+model Prediction {
+  id          String @id @default(cuid())
+  imageId     String
+  image       Image  @relation(fields: [imageId], references: [id], onDelete: Cascade)
+  modelVersionId String?
+  modelVersion   ModelVersion? @relation(fields: [modelVersionId], references: [id])
+
+  predictedClass String?
+  confidence     Float?
+  probabilities  Json? // full four-class distribution (Phase 8 persistence)
+  isPlaceholder  Boolean @default(true)
+
+  feedback Feedback?
+
+  createdAt DateTime @default(now())
+
+  @@index([imageId])
+  @@index([modelVersionId])
+  @@map("predictions")
+}
+
+model Feedback {
+  id           String  @id @default(cuid())
+  predictionId String  @unique
+  prediction   Prediction @relation(fields: [predictionId], references: [id], onDelete: Cascade)
+
+  isCorrect      Boolean? // null = user unsure; Phase 9.1 review decides
+  verdict        String? // agree | disagree | unsure (UI vocabulary)
+  correctedClass String? // user-suggested class (approved taxonomy only)
+  comment        String?
+
+  // Phase 9.1 review workflow: SUBMITTED -> NEEDS_REVIEW -> UNDER_REVIEW
+  //   -> VERIFIED (label becomes candidate training data) | REJECTED
+  reviewStatus   String  @default("SUBMITTED")
+  reviewer       String?
+  reviewedAt     DateTime?
+  reviewNotes    String?
+  verifiedClass  String? // expert-verified label after review
+
+  createdAt DateTime @default(now())
+
+  @@map("feedback")
+}
+
+/// Generic audit trail for model/dataset governance actions (Phase 9.1).
+model SystemAudit {
+  id         String @id @default(cuid())
+  actor      String
+  action     String // model_status_change | model_activation | feedback_review | dataset_promotion | ...
+  objectType String // ModelVersion | Feedback | Dataset | Image
+  objectId   String
+  previousState Json?
+  newState      Json?
+  reason     String?
+  createdAt  DateTime @default(now())
+
+  @@index([objectType, objectId])
+  @@map("system_audits")
+}
+
+enum DatasetStatus {
+  DRAFT
+  READY
+  ARCHIVED
+}
+
+enum AnnotationStatus {
+  UNLABELED
+  NEEDS_REVIEW
+  ANNOTATED // preliminary label exists
+  EXPERT_REVIEWED
+  APPROVED // confirmed ground truth
+  REJECTED
+  SECOND_OPINION
+  UNCERTAIN // not forced into a class
+}
+
+enum AnnotationStage {
+  PRELIMINARY
+  EXPERT_REVIEW
+  FINAL_VERIFIED
+}

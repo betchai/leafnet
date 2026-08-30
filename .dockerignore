@@ -1,0 +1,55 @@
+# Dependencies (reinstalled in Docker)
+node_modules
+ml/.venv
+
+# Build artifacts (rebuilt in Docker)
+apps/api/dist
+apps/web/dist
+ml/models/*
+!ml/models/.gitkeep
+
+# Data (large; not shipped in image)
+ml/data/raw
+ml/data/processed
+ml/data/train
+ml/data/validation
+ml/data/test
+ml/data/prepared
+ml/data/versions
+
+# Reports (generated at runtime)
+ml/reports/evaluation
+ml/reports/experiments
+
+# Uploads (persistent volume mounted at runtime)
+uploads
+
+# Dev/test artifacts
+coverage
+.pytest_cache
+__pycache__
+*.pyc
+*.ipynb_checkpoints
+.ipynb_checkpoints
+
+# Dev environment
+.env
+.env.local
+.env.*.local
+*.log
+.DS_Store
+*.tsbuildinfo
+
+# Git
+.git
+.gitignore
+
+# Docs (not needed in production image)
+docs
+*.md
+!ml/README.md
+
+# Test files
+ml/tests
+apps/api/src/**/*.test.*
+apps/web/src/**/*.test.*

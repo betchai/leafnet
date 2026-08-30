@@ -1,0 +1,130 @@
+{
+  "datasetVersion": null,
+  "_comment": "LEAFNET approved four-class, single-label visual classification taxonomy. DO NOT change these classes without formal research-methodology approval. Sources are cited per class; see docs/dataset.md and Phase2_Status.md.",
+  "task": {
+    "type": "single_label_image_classification",
+    "numClasses": 4,
+    "note": "Visual classification only - NOT biological diagnosis."
+  },
+  "classes": [
+    {
+      "key": "healthy",
+      "id": 0,
+      "name": "healthy",
+      "label": "Healthy",
+      "display_name": "Healthy Mulberry Leaf",
+      "category": "condition",
+      "description": "Leaf shows no visible symptoms of rust, leaf spot, blight, pest feeding, or other abnormality.",
+      "enabled": true,
+      "visual_indicators": [
+        "Uniform green coloration appropriate to leaf age",
+        "No necrotic spots, pustules, chlorotic halos, or lesions",
+        "Intact leaf margins and surface texture",
+        "Natural senescence yellowing on very old leaves may still qualify if uniform and free of disease symptoms"
+      ],
+      "annotation_guidance": "Label healthy only when NO symptom of any disease class is visible. When in doubt between healthy and an early-stage condition, use the uncertain/needs-review path.",
+      "confounding_conditions": [
+        "Early-stage infections may show no symptoms yet (leaf appears healthy)",
+        "Uniform nutrient-related pallor without lesions",
+        "Natural senescence"
+      ],
+      "evidence_sources": [
+        "Frontiers in Plant Science (2023): mulberry leaf-disease dataset annotated by sericulture experts distinguishes disease-free leaves from rust and spot",
+        "Bangladesh Sericulture Development Board expert-annotated criteria (as documented in Frontiers 2023, doi:10.3389/fpls.2023.1175515)"
+      ],
+      "definition_confidence": "high"
+    },
+    {
+      "key": "leaf_rust",
+      "id": 1,
+      "name": "leaf_rust",
+      "label": "Leaf Rust",
+      "display_name": "Mulberry Leaf Rust",
+      "category": "fungal_disease",
+      "description": "Rust disease of mulberry caused by rust fungi (principally Cerotelium fici; also Peridiopsora/Aecidium mori), visually characterized by raised powdery pustules.",
+      "enabled": true,
+      "visual_indicators": [
+        "Small pinhead-sized circular brownish-to-black spots that develop into raised pustules",
+        "Light-brown/yellowish-orange powdery masses (spores), often with a yellowish halo (~0.5-1 mm pustules)",
+        "Pustules frequently on the abaxial (lower) leaf surface; chlorotic patches above",
+        "Advanced stages: leaves yellow and wither prematurely"
+      ],
+      "annotation_guidance": "The key discriminator vs leaf_spot is the POWDERY/RAISED PUSTULE appearance (spore mass). Flat necrotic spots are leaf_spot, not rust. If only early pinhead spots are present without pustules, flag as uncertain.",
+      "confounding_conditions": [
+        "Early leaf_spot lesions look like the initial pinhead spots of rust",
+        "Necrotic spots after pustules rupture can resemble leaf_spot",
+        "Insect galls or scale insects can mimic pustules"
+      ],
+      "evidence_sources": [
+        "Mordue (1991), CAB Descriptions of Fungi and Bacteria: Aecidium mori, 'Rust of mulberry'",
+        "Baiyewu et al. (2005), Pakistan J. Plant Pathology: occurrence of leaf rust of mulberry by Cerotelium fici - pinhead brown/black spots, then yellowing and withering",
+        "Goncalves et al. (2022), Plant Disease: first report of C. fici on M. nigra in Brazil - light brown pustules with yellowish halo",
+        "Dev Maji (2011): epidemiology of brown leaf rust caused by Peridiopsora mori",
+        "Kasuya et al. (2024), Mycoscience: Gymnosporangium mori comb. nov. taxonomy"
+      ],
+      "definition_confidence": "high"
+    },
+    {
+      "key": "leaf_spot",
+      "id": 2,
+      "name": "leaf_spot",
+      "label": "Leaf Spot",
+      "display_name": "Mulberry Leaf Spot",
+      "category": "fungal_disease",
+      "description": "Necrotic spotting diseases of mulberry leaves caused by diverse fungi (Cercospora moricola, Pseudocercospora mori, Mycosphaerella/Phloeospora maculans, Bipolaris, Curvularia, and others), visually characterized by flat, discrete necrotic spots.",
+      "enabled": true,
+      "visual_indicators": [
+        "Discrete, FLAT necrotic spots: small dark brown/black dots to larger (~0.5-1+ cm) dry circular or irregular lesions",
+        "Spots often have pale/grey centers with dark borders and/or diffuse chlorotic (yellow) halos",
+        "Vein-limited angular spots occur in some pathogens (Phloeospora)",
+        "Severe cases: spots coalesce, leaves yellow and drop prematurely; grey mold-like patches possible (Pseudocercospora)"
+      ],
+      "annotation_guidance": "Label leaf_spot when flat necrotic lesions dominate and no raised powdery pustules (rust) or large spreading dead areas (blight) are present. The visual class deliberately groups multiple fungal pathogens that share this symptom profile.",
+      "confounding_conditions": [
+        "Rust before pustule formation produces similar pinhead necrotic spots",
+        "Coalesced leaf-spot lesions produce a 'blighted' appearance (documented for Bipolaris sorokiniana)",
+        "Physical damage and insect feeding can leave necrotic-looking marks",
+        "Herbicide/nutrient burn can cause necrotic flecking"
+      ],
+      "evidence_sources": [
+        "Arunakumar et al. (2023), BMC/PMC10665727: diversity of fungal pathogens in leaf spot of Indian mulberry; symptomatology per pathogen",
+        "Frontiers in Plant Science (2025): Pseudocercospora mori grey leaf spot of mulberry, Guangdong China - greyish mold-like patches, black sooty spots, light grey areas",
+        "Soylu et al. (2003), Plant Pathology: Phloeospora maculans leaf spot, Turkey - vein-limited brown spots with chlorotic halo",
+        "Florida DPI Plant Pathology Circular No. 329 (1990): Mycosphaerella mori - large dry necrotic circular spots",
+        "Texas A&M Plant Disease Handbook: leaf spots of mulberry (Cercospora spp.)"
+      ],
+      "definition_confidence": "medium-high",
+      "research_note": "'Leaf spot' is a SYMPTOM-based grouping of many distinct pathogens. Visual classification cannot identify the causal species; this is documented as an inherent limitation."
+    },
+    {
+      "key": "leaf_blight",
+      "id": 3,
+      "name": "leaf_blight",
+      "label": "Leaf Blight",
+      "display_name": "Mulberry Leaf Blight",
+      "category": "disease",
+      "description": "Blight conditions of mulberry foliage characterized by rapid, extensive browning/withering and death of leaf tissue (including bacterial blight, Pseudomonas syringae pv. mori, and advanced coalescing fungal necrosis), visually characterized by large irregular dead areas rather than discrete spots.",
+      "enabled": true,
+      "visual_indicators": [
+        "Large, rapidly expanding irregular necrotic (brown/dead) areas, often starting at leaf tips/margins or along veins",
+        "Water-soaked lesion margins (characteristic of bacterial blight) that later dry brown",
+        "Shoot-tip wilting/black striping on young shoots accompanies bacterial blight (may not be visible in a single-leaf photo)",
+        "Generalized scorching/withering rather than scattered discrete spots"
+      ],
+      "annotation_guidance": "Label leaf_blight when necrosis is extensive/coalescing/spreading rather than discrete spotting. If a photo shows only part of the affected tissue, prefer needs_review over forcing a class. Bacterial vs fungal causation CANNOT be determined visually - the class is deliberately causal-agent-agnostic.",
+      "confounding_conditions": [
+        "Coalesced leaf-spot lesions (documented in PMC10665727) appear blight-like - a major ambiguity",
+        "Drought/salt/wind scorch and herbicide injury mimic marginal necrosis",
+        "Late-stage rust causes whole-leaf withering that resembles blight"
+      ],
+      "evidence_sources": [
+        "Texas A&M Plant Disease Handbook: Bacterial Blight (Pseudomonas syringae pv. mori) - watersoaked spots, black shoot stripes, tip wilt",
+        "J-Stage (2014) 'Mulberry Diseases and Their Control': bacterial blight listed among serious mulberry diseases",
+        "Arunakumar et al. (2023): Bipolaris sorokiniana lesions coalesce into blightened appearance",
+        "Philippine Phytopathology (1995) Dizon & Kakishima: symptomatology of mulberry rust/blight complex caused by C. fici"
+      ],
+      "definition_confidence": "medium",
+      "research_note": "FLAGGED RESEARCH RISK: literature does not provide a single crisp visual definition separating blight from severe leaf spot on mulberry. Boundary cases must go through expert review; see Known Limitations in docs/dataset.md."
+    }
+  ]
+}

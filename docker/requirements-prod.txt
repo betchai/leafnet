@@ -1,0 +1,12 @@
+# Production-only Python dependencies for the ML inference service.
+# Strips dev tools (jupyterlab, pytest, httpx) from the full requirements.txt.
+torch>=2.0
+torchvision>=0.15
+opencv-python-headless>=4.8
+Pillow>=10.0
+numpy>=1.24
+pandas>=2.0
+scikit-learn>=1.3
+fastapi>=0.110
+uvicorn[standard]>=0.27
+imagehash>=4.3

@@ -1,0 +1,12 @@
+{
+  "num_groups": 15,
+  "ungrouped_images": 0,
+  "strategy": "group_aware",
+  "seed": 42,
+  "final_counts": {
+    "test": 400,
+    "train": 1600
+  },
+  "excluded_rows": 0,
+  "dataset_id": "cmtfa8pl20gz5yc87u3ahpdmk"
+}

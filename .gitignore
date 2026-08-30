@@ -1,0 +1,38 @@
+# Node
+node_modules/
+dist/
+build/
+*.tsbuildinfo
+
+# Environment / secrets
+.env
+.env.local
+.env.*.local
+
+# Python ML
+ml/.venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Data & models (large binaries stay out of git)
+ml/data/raw/*
+!ml/data/raw/.gitkeep
+ml/data/processed/*
+!ml/data/processed/.gitkeep
+ml/data/train/*
+!ml/data/train/.gitkeep
+ml/data/validation/*
+!ml/data/validation/.gitkeep
+ml/data/test/*
+!ml/data/test/.gitkeep
+ml/models/*
+!ml/models/.gitkeep
+
+# Uploads
+uploads/
+
+# Misc
+.DS_Store
+*.log
+coverage/

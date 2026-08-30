@@ -1,0 +1,22 @@
+{
+  "name": "mulberry-leaf-intelligence",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Supervised computer-vision system for classifying mulberry leaf health from photographs",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:api": "npm run dev --workspace @mulberry/api",
+    "dev:web": "npm run dev --workspace @mulberry/web",
+    "build": "npm run build --workspaces --if-present",
+    "db:migrate": "prisma migrate dev --schema prisma/schema.prisma",
+    "db:push": "prisma db push --schema prisma/schema.prisma",
+    "db:generate": "prisma generate --schema prisma/schema.prisma",
+    "db:studio": "prisma studio --schema prisma/schema.prisma"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.0"
+  }
+}

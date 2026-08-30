@@ -1,0 +1,63 @@
+# LEAFNET — Render Blueprint
+# Deploy: connect GitHub repo → New → Infrastructure from Blueprint
+#
+# Architecture:
+#   Node API (web service) — serves frontend + API, proxies to ML
+#   Python ML (web service) — FastAPI inference, PyTorch CPU
+#   PostgreSQL (database) — managed Postgres
+#
+# Estimated cost: ~$21/mo (3 paid services) or $0 on free tier (spins down after inactivity).
+
+services:
+  # ── Node API + Frontend ────────────────────────────────────────────────
+  # Builds the React frontend and serves it alongside the Express API.
+  # The frontend uses relative /api paths, so both must share an origin.
+  - type: web
+    name: leafnet-api
+    runtime: image
+    image:
+      dockerfilePath: docker/api.Dockerfile
+      dockerContext: .
+    plan: starter
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: leafnet-db
+          property: connectionString
+      - key: ML_SERVICE_URL
+        fromService:
+          name: leafnet-ml
+          property: serviceProxyUrl
+      - key: WEB_ORIGIN
+        sync: false
+      - key: UPLOAD_DIRECTORY
+        value: /var/data/uploads
+    disk:
+      name: uploads
+      mountPath: /var/data/uploads
+      sizeGB: 1
+
+  # ── Python ML Inference Service ────────────────────────────────────────
+  # FastAPI + PyTorch CPU. Loads model from active.json at startup.
+  # Accepts images via /predict, returns classifications.
+  - type: web
+    name: leafnet-ml
+    runtime: image
+    image:
+      dockerfilePath: docker/ml.Dockerfile
+      dockerContext: .
+    plan: starter
+    healthCheckPath: /health
+    envVars:
+      - key: ML_PORT
+        value: "8000"
+
+  # ── PostgreSQL Database ────────────────────────────────────────────────
+  - type: database
+    name: leafnet-db
+    plan: starter
+    databaseName: leafnet
+    user: leafnet

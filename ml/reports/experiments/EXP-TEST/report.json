@@ -1,0 +1,50 @@
+{
+  "experiment_id": "EXP-TEST",
+  "trained_at": "2026-08-30T04:26:21.848044+00:00",
+  "dataset_version": "vDEVFIXTURES",
+  "architecture": "mobilenet_v2",
+  "pretrained_weights": "torchvision.IMAGENET1K_V2",
+  "transfer_learning_strategy": "frozen_backbone_head_only",
+  "parameters": {
+    "total_parameters": 2228996,
+    "trainable_parameters": 5124
+  },
+  "configuration": {
+    "imageSize": [
+      224,
+      224
+    ],
+    "batchSize": 2,
+    "learningRateHead": 0.0001,
+    "learningRateBackbone": 1e-05,
+    "epochs": 1,
+    "optimizer": "adam",
+    "weightDecay": 0.0001,
+    "scheduler": "reduce_lr_on_plateau",
+    "schedulerFactor": 0.5,
+    "schedulerPatience": 2,
+    "earlyStopping": true,
+    "patience": 5,
+    "numWorkers": 0,
+    "randomSeed": 42,
+    "dropout": 0.5,
+    "freezeBackbone": true,
+    "fineTuneLayers": 0
+  },
+  "environment": {
+    "python": "3.14.6",
+    "pytorch": "2.13.0",
+    "torchvision": "0.28.0",
+    "cuda_available": false,
+    "device": "cpu",
+    "platform": "macOS-26.5-arm64-arm-64bit-Mach-O"
+  },
+  "best_epoch": 1,
+  "best_val_loss": 1.3694,
+  "best_val_accuracy": 0.0,
+  "early_stopped_at": null,
+  "skipped_images": [],
+  "notes": "PILOT tiny fixture training - not research results",
+  "status": "PILOT_PIPELINE_VALIDATION",
+  "_warning": "Training/validation metrics ONLY. Test evaluation reserved for Phase 6."
+}
