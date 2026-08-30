@@ -46,8 +46,10 @@ def prepare_dataset(api_base: str, dataset_id: str, seed: int = 42,
                     force: bool = False, pilot: bool = False) -> tuple[Path, dict]:
     """Fetch manifest + assign splits. Cached per (dataset, seed) unless force.
 
-    pilot=True: image-level split ignoring grouping keys. ONLY for pipeline
-    validation on tiny datasets — research runs must use grouped splitting.
+    pilot=True: image-level split ignoring grouping keys (keys are RETAINED in
+    the manifest — only ignored for assignment). ONLY for pipeline validation
+    or when the dataset genuinely cannot satisfy a grouped split; research runs
+    must use grouped splitting.
     """
     PREPARED_DIR.mkdir(parents=True, exist_ok=True)
     suffix = f"_seed{seed}" + ("_PILOT" if pilot else "")
@@ -71,18 +73,14 @@ def prepare_dataset(api_base: str, dataset_id: str, seed: int = 42,
         existing = [json.loads(l) for l in out.read_text().splitlines() if l.strip()]
         return out, {"reused_existing": True, "counts": _counts(existing), "excluded_rows": excluded}
 
-    if pilot:
-        # Strip grouping keys so the splitter cannot keep everything together.
-        approved = [
-            {k: v for k, v in r.items() if k not in (
-                "collection_session_id", "farm_id", "plant_id", "leaf_id")}
-            for r in approved
-        ]
-    split_result = create_grouped_splits(approved, seed=seed)
+    # PILOT = image-level split for genuinely tiny/ungroupable datasets. The
+    # grouping keys are KEPT in the manifest (never destroy provenance — audits
+    # and later grouped runs must still see them); the splitter is only told to
+    # IGNORE them for this particular run.
+    split_result = create_grouped_splits(approved, seed=seed, ignore_groups=pilot)
     assigned = split_result["rows"]
     if pilot:
-        assigned = [dict(r, **{}) for r in assigned]
-        split_result["audit"]["strategy"] = "pilot_image_level_split_GROUPING_IGNORED"
+        split_result["audit"]["strategy"] = "pilot_image_level_split_group_keys_ignored"
     with out.open("w") as f:
         for r in assigned:
             f.write(json.dumps(r) + "\n")

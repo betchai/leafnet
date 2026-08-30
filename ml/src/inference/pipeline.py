@@ -55,6 +55,18 @@ def _log(job: dict, msg: str):
     print(f"[pipeline:{job['job_id']}] {msg}")
 
 
+def _manifest_split_counts(manifest_path: Path) -> dict:
+    """Best-effort split census of a prepared manifest (for audit logs)."""
+    from collections import Counter
+    try:
+        rows = [json.loads(l) for l in manifest_path.read_text().splitlines() if l.strip()]
+        return {**Counter(r["split"] for r in rows),
+                "grouped_images": sum(1 for r in rows if r.get("collection_session_id")
+                                      or r.get("farm_id") or r.get("plant_id") or r.get("leaf_id"))}
+    except Exception:
+        return {}
+
+
 def _run_job(job: dict, params: dict):
     try:
         api_base = params["apiBase"]
@@ -79,10 +91,15 @@ def _run_job(job: dict, params: dict):
         manifest_path, audit = prepare_dataset(api_base, params["datasetId"], seed=seed)
         ok, preflight = run_preflight(manifest_path, load_class_mapping())
         if not ok:
-            # Auto-fallback: tiny datasets cannot satisfy grouped splitting.
-            # Fall back to a documented PILOT split rather than refusing outright,
-            # but mark every resulting model as pipeline-validation only.
-            _log(job, "preflight failed on grouped split -> falling back to PILOT split")
+            # Explain exactly WHY grouped splitting was rejected (usually: too
+            # few collection sessions per class to guarantee val/test groups),
+            # then fall back to a documented PILOT split. Group keys are still
+            # persisted in the manifest — they are never lost.
+            reasons = " ".join(preflight.get("problems", [])) or "preflight failed"
+            counts = _manifest_split_counts(manifest_path)
+            _log(job, "grouped split rejected -> falling back to PILOT split")
+            _log(job, f"grouped split reason: {reasons}")
+            _log(job, f"grouped split counts: {counts}")
             manifest_path, audit = prepare_dataset(api_base, params["datasetId"],
                                                    seed=seed, force=True, pilot=True)
             ok, preflight = run_preflight(manifest_path, load_class_mapping())
@@ -90,9 +107,11 @@ def _run_job(job: dict, params: dict):
                 raise RuntimeError("preflight failed even in pilot mode: "
                                    + "; ".join(preflight["problems"]))
             job["pilot_fallback"] = True
+            job["grouped_split_reason"] = reasons
+            note = ("[PILOT FALLBACK: image-level split used; grouped split rejected: "
+                    + (reasons[:200] + "…" if len(reasons) > 200 else reasons) + "]")
             for exp in params["experiments"]:
-                exp["notes"] = (exp.get("notes", "") +
-                    " [PILOT FALLBACK: image-level split used because dataset too small for grouped split]").strip()
+                exp["notes"] = (exp.get("notes", "") + " " + note).strip()
         _log(job, f"preflight OK: {preflight['counts']}")
 
         config = json.loads((ML_ROOT / "src/config/training.json").read_text())

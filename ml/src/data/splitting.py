@@ -8,8 +8,15 @@ plant_id > leaf_id) must land in the SAME split. The finest available group
 key per image is used. Groups are assigned to splits with stratified sampling
 by class and a fixed seed, then any residual imbalance is filled greedily.
 
-If no grouping metadata exists at all, falls back to stratified image-level
+Every class is guaranteed a train split plus (whenever it has enough groups) a
+validation and a test split — a small class (e.g. 4 collection sessions) must
+never silently produce an EMPTY validation partition (the old `round(n*0.1)`
+arithmetic did exactly that, which forced the whole run into PILOT fallback).
+
+If no grouping metadata exists at all — or the caller explicitly sets
+`ignore_groups=True` (PILOT runs) — falls back to stratified image-level
 splitting AND records that fact in the returned metadata so it can be audited.
+The group keys themselves are never deleted from the rows.
 """
 
 from __future__ import annotations
@@ -22,15 +29,48 @@ SPLIT_RATIOS = {"train": 0.8, "validation": 0.1, "test": 0.1}
 GROUP_KEYS = ["collection_session_id", "farm_id", "plant_id", "leaf_id"]
 
 
-def _group_key(row: dict) -> str | None:
-    """Return the finest available group identifier for an image row."""
+def _group_key(row: dict, ignore_groups: bool = False) -> str | None:
+    """Return the finest available group identifier for an image row.
+
+    `ignore_groups=True` forces an image-level split WITHOUT deleting the keys
+    from the row (provenance is preserved for future grouped runs).
+    """
+    if ignore_groups:
+        return None
     for key in GROUP_KEYS:
         if row.get(key):
             return f"{key}={row[key]}"
     return None
 
 
-def create_grouped_splits(rows: list[dict], seed: int = 42) -> dict:
+def _split_group_counts(n: int) -> tuple[int, int, int]:
+    """(train, validation, test) group counts for a class with `n` groups.
+
+    Apportions toward 80/10/10 (largest remainder) but ALWAYS guarantees a
+    non-empty train split and, whenever the class has enough sessions,
+    non-empty validation and test splits. Without this, a class with only 4
+    collection sessions yielded `round(4 * 0.1) = 0` validation groups, which
+    made the whole grouped run unsplittable and forced a PILOT fallback.
+    """
+    if n <= 0:
+        return (0, 0, 0)
+    if n == 1:
+        return (1, 0, 0)
+    if n == 2:
+        return (1, 1, 0)
+    floors = [int(n * SPLIT_RATIOS["train"]), int(n * SPLIT_RATIOS["validation"]), int(n * SPLIT_RATIOS["test"])]
+    remaining = n - sum(floors)
+    order = sorted(range(3), key=lambda i: (n * list(SPLIT_RATIOS.values())[i]) - floors[i], reverse=True)
+    for k in range(remaining):
+        floors[order[k % 3]] += 1
+    train, val, test = floors
+    val = max(val, 1)
+    test = max(test, 1)
+    train = n - val - test  # borrow any shortfall from train
+    return (train, val, test)
+
+
+def create_grouped_splits(rows: list[dict], seed: int = 42, ignore_groups: bool = False) -> dict:
     """Assign each row a 'split' field. Returns rows + audit metadata.
 
     Each input row needs at least: image_id, class (optional), and optional
@@ -42,7 +82,7 @@ def create_grouped_splits(rows: list[dict], seed: int = 42) -> dict:
     groups: dict[str, list[dict]] = defaultdict(list)
     ungrouped: list[dict] = []
     for row in out:
-        gk = _group_key(row)
+        gk = _group_key(row, ignore_groups=ignore_groups)
         if gk is None:
             ungrouped.append(row)
         else:
@@ -64,8 +104,7 @@ def create_grouped_splits(rows: list[dict], seed: int = 42) -> dict:
     for cls, gids in by_class_groups.items():
         rng.shuffle(gids)
         n = len(gids)
-        n_train = round(n * SPLIT_RATIOS["train"])
-        n_val = round(n * SPLIT_RATIOS["validation"])
+        n_train, n_val, _ = _split_group_counts(n)
         for i, gid in enumerate(gids):
             if i < n_train:
                 split_of_group[gid] = "train"

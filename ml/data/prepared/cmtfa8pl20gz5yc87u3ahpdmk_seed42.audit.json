@@ -5,7 +5,8 @@
   "seed": 42,
   "final_counts": {
     "test": 400,
-    "train": 1600
+    "train": 1100,
+    "validation": 500
   },
   "excluded_rows": 0,
   "dataset_id": "cmtfa8pl20gz5yc87u3ahpdmk"

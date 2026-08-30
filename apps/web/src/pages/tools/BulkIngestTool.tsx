@@ -23,6 +23,9 @@ export default function BulkIngestTool() {
   const [source, setSource] = useState("");
   const [sessionId, setSessionId] = useState("");
   const [farmId, setFarmId] = useState("");
+  const [plantId, setPlantId] = useState("");
+  const [leafId, setLeafId] = useState("");
+  const [location, setLocation] = useState("");
   const [license, setLicense] = useState("own_photo");
   const [assignLabel, setAssignLabel] = useState("");
   const [annotator, setAnnotator] = useState("");
@@ -41,6 +44,9 @@ export default function BulkIngestTool() {
         sourceType: source ? "field_photo" : "",
         collectionSessionId: sessionId,
         farmId,
+        plantId,
+        leafId,
+        location,
         license,
         isDevFixture: String(isDevFixture),
       };
@@ -84,9 +90,20 @@ export default function BulkIngestTool() {
             value={sessionId} onChange={(e) => setSessionId(e.target.value)} />
           <input className="border rounded px-2 py-1" placeholder="Farm/site ID (optional)"
             value={farmId} onChange={(e) => setFarmId(e.target.value)} />
+          <input className="border rounded px-2 py-1" placeholder="Plant ID (optional)"
+            value={plantId} onChange={(e) => setPlantId(e.target.value)} />
+          <input className="border rounded px-2 py-1" placeholder="Leaf ID (optional)"
+            value={leafId} onChange={(e) => setLeafId(e.target.value)} />
+          <input className="border rounded px-2 py-1" placeholder="Location (optional)"
+            value={location} onChange={(e) => setLocation(e.target.value)} />
           <input className="border rounded px-2 py-1" placeholder="License"
             value={license} onChange={(e) => setLicense(e.target.value)} />
         </div>
+        <p className="text-xs text-gray-400">
+          Capture as fine-grained grouping IDs as you can (site → plant → leaf).
+          Images sharing an ID are kept together when the dataset is split, which
+          prevents same-leaf leakage between training and testing.
+        </p>
         <label className="flex items-center gap-2 text-sm text-gray-600">
           <input type="checkbox" checked={isDevFixture} onChange={(e) => setIsDevFixture(e.target.checked)} />
           Mark as development fixture (excluded from research counts)

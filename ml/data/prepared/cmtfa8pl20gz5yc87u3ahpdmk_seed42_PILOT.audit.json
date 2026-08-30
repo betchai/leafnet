@@ -1,7 +1,7 @@
 {
   "num_groups": 0,
   "ungrouped_images": 2000,
-  "strategy": "pilot_image_level_split_GROUPING_IGNORED",
+  "strategy": "pilot_image_level_split_group_keys_ignored",
   "seed": 42,
   "final_counts": {
     "train": 1600,
