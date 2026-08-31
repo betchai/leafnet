@@ -48,6 +48,33 @@ def test_audit_records_fallback_when_no_grouping_metadata():
     assert r["audit"]["strategy"].startswith("image_level_random_fallback")
 
 
+def test_exact_duplicates_under_different_sessions_neversplit():
+    """Same sha256 uploaded under different collection sessions must share a split."""
+    rows = []
+    for i in range(20):
+        rows.append({
+            "image_id": f"a{i}", "class": "healthy",
+            "collection_session_id": f"S{i}", "sha256": f"H{i // 2}",  # dups in pairs
+        })
+    out = create_grouped_splits(rows, seed=7)["rows"]
+    by_hash: dict[str, set[str]] = {}
+    for r in out:
+        by_hash.setdefault(r["sha256"], set()).add(r["split"])
+    assert all(len(splits) == 1 for splits in by_hash.values()), \
+        "leakage: identical images split across train/val/test"
+
+
+def test_audit_reports_duplicate_locked_groups():
+    rows = [
+        {"image_id": f"i{i}", "class": "healthy",
+         "collection_session_id": f"S{i}", "sha256": f"H{i % 3}"}
+        for i in range(9)
+    ]
+    audit = create_grouped_splits(rows, seed=3)["audit"]
+    assert audit["duplicate_locked_groups"] == 3
+    assert audit["strategy"] == "group_aware_union_find"
+
+
 def test_ignore_groups_keeps_keys_but_splits_image_level():
     """PILOT mode must NOT delete grouping keys — it only ignores them."""
     rows = [
@@ -71,7 +98,7 @@ def test_small_class_still_gets_all_three_splits():
         for i in range(400)  # 4 sessions x 100 images per class
     ]
     res = create_grouped_splits(rows, seed=42)
-    assert res["audit"]["strategy"] == "group_aware"
+    assert res["audit"]["strategy"] == "group_aware_union_find"
     counts = res["audit"]["final_counts"]
     assert counts["train"] > 0 and counts["validation"] > 0 and counts["test"] > 0
     by_leaf: dict[str, set[str]] = {}

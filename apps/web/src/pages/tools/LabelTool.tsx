@@ -107,29 +107,43 @@ export default function LabelTool() {
           <p className="text-sm text-gray-500">Nothing awaiting preliminary labels.</p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {queue.map((img) => (
-              <div key={img.id} className="rounded-lg bg-white border border-gray-200 overflow-hidden">
-                <img src={toolsApi.imageUrl(img.id)} alt={img.filename} className="w-full max-h-56 object-contain bg-gray-50" />
-                <div className="p-3 space-y-2">
-                  <p className="text-xs text-gray-500 truncate">
-                    {img.filename} · {img.annotationStatus}
-                    {img.source ? ` · ${img.source}` : ""}
-                  </p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {CLASS_OPTIONS.map((k) => (
-                      <button key={k} onClick={() => label(img.id, k)}
-                        className={`px-2.5 py-1 rounded text-xs font-medium border ${
-                          classes?.classes.find((c) => c.key === k)
-                            ? "border-leaf-500 text-leaf-700 hover:bg-leaf-50"
-                            : "border-gray-300 hover:bg-gray-100"
-                        }`}>
-                        {LABELS[k]}
-                      </button>
-                    ))}
+            {queue.map((img) => {
+              const pred = img.predictions?.[0];
+              return (
+                <div key={img.id} className="rounded-lg bg-white border border-gray-200 overflow-hidden">
+                  <img src={toolsApi.imageUrl(img.id)} alt={img.filename} className="w-full max-h-56 object-contain bg-gray-50" />
+                  <div className="p-3 space-y-2">
+                    <p className="text-xs text-gray-500 truncate">
+                      {img.filename} · {img.annotationStatus}
+                      {img.source ? ` · ${img.source}` : ""}
+                    </p>
+                    {pred && (
+                      <p className="text-xs px-2 py-1 rounded bg-sky-50 border border-sky-100 text-sky-900">
+                        AI (analyzer) classified:{" "}
+                        <strong>{LABELS[pred.predictedClass] ?? pred.predictedClass}</strong>
+                        {pred.confidence != null && <> at {(100 * pred.confidence).toFixed(0)}%</>}
+                        {pred.modelVersion?.version && <> · model {pred.modelVersion.version}</>}
+                        <span className="block text-[11px] text-sky-600 mt-0.5">
+                          Model suggestion only — decide on your own reading, do not copy it.
+                        </span>
+                      </p>
+                    )}
+                    <div className="flex flex-wrap gap-1.5">
+                      {CLASS_OPTIONS.map((k) => (
+                        <button key={k} onClick={() => label(img.id, k)}
+                          className={`px-2.5 py-1 rounded text-xs font-medium border ${
+                            classes?.classes.find((c) => c.key === k)
+                              ? "border-leaf-500 text-leaf-700 hover:bg-leaf-50"
+                              : "border-gray-300 hover:bg-gray-100"
+                          }`}>
+                          {LABELS[k]}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </section>

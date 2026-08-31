@@ -3,6 +3,12 @@ import { useEffect, useState } from "react";
 import { toolsApi, ImageRow } from "../../lib/api";
 
 const CLASS_OPTIONS = ["healthy", "leaf_rust", "leaf_spot", "leaf_blight"] as const;
+const LABELS: Record<string, string> = {
+  healthy: "Healthy",
+  leaf_rust: "Leaf Rust",
+  leaf_spot: "Leaf Spot",
+  leaf_blight: "Leaf Blight",
+};
 
 const QUEUES = [
   ["ANNOTATED", "Awaiting expert review"],
@@ -115,7 +121,9 @@ export default function ReviewTool() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {queue.map((img) => {
-            const prelim = img.classifications?.[0]?.classKey;
+            const prelim = img.annotations?.[0]?.preliminaryLabel ?? img.classifications?.[0]?.classKey;
+            const annotator = img.annotations?.[0]?.annotator;
+            const pred = img.predictions?.[0];
             return (
               <div key={img.id} className="rounded-lg bg-white border border-gray-200 overflow-hidden">
                 <img src={toolsApi.imageUrl(img.id)} alt={img.filename} className="w-full max-h-56 object-contain bg-gray-50" />
@@ -123,7 +131,19 @@ export default function ReviewTool() {
                   <p className="text-xs text-gray-500">
                     Preliminary label:{" "}
                     <strong className="text-gray-700">{prelim ?? "none"}</strong> · {img.annotationStatus}
+                    {annotator && <span className="text-gray-400"> · annotated by {annotator}</span>}
                   </p>
+                  {pred && (
+                    <p className="text-xs px-2 py-1 rounded bg-sky-50 border border-sky-100 text-sky-900">
+                      AI (analyzer) classified:{" "}
+                      <strong>{LABELS[pred.predictedClass] ?? pred.predictedClass}</strong>
+                      {pred.confidence != null && <> at {(100 * pred.confidence).toFixed(0)}%</>}
+                      {pred.modelVersion?.version && <> · model {pred.modelVersion.version}</>}
+                      <span className="block text-[11px] text-sky-600 mt-0.5">
+                        Suggestion only — judge the image independently, do not trust or copy it.
+                      </span>
+                    </p>
+                  )}
                   <div className="flex flex-wrap gap-1.5">
                     <button onClick={() => act(img.id, "confirm")}
                       className="px-2.5 py-1 rounded text-xs font-medium bg-green-600 text-white hover:bg-green-700">

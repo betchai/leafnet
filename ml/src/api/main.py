@@ -110,6 +110,29 @@ from src.api.insights_router import router as insights_router  # noqa: E402
 app.include_router(insights_router)
 
 
+@app.post("/models/{version}/activate")
+def activate_model(version: str):
+    """Pointer-only activation: switch ml/models/active.json to `version` and
+    reload the in-process bundle. The DB-level lifecycle/approval decision is
+    owned by the Node API — this endpoint only makes the ML service serve it."""
+    global _bundle, _load_error
+    model_dir = model_loader.MODELS_DIR / version
+    if not (model_dir / "model_best.pt").exists():
+        raise HTTPException(status_code=404, detail=f"checkpoint not found for '{version}'")
+    pointer = model_loader.MODELS_DIR / "active.json"
+    pointer.write_text(json.dumps({"model_version": version}))
+    _bundle = None
+    _load_error = None
+    b = get_bundle()
+    log.info("model activated: %s (sha256 %s, %ss)", b["version_id"], b["sha256_prefix"], b["load_seconds"])
+    return {
+        "ok": True,
+        "model_version": b["version_id"],
+        "sha256_prefix": b["sha256_prefix"],
+        "pilot": is_pilot(b),
+    }
+
+
 @app.on_event("startup")
 def startup() -> None:
     log.info("starting LEAFNET ML service")

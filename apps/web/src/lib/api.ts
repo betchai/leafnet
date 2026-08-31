@@ -36,6 +36,18 @@ export interface ImageRow {
   isDevFixture: boolean;
   source?: string | null;
   classifications: { classKey: string }[];
+  annotations?: {
+    preliminaryLabel: string | null;
+    annotator: string | null;
+    annotatedAt: string | null;
+    reviewNotes: string | null;
+  }[];
+  predictions?: {
+    predictedClass: string;
+    confidence: number | null;
+    createdAt: string;
+    modelVersion?: { version: string } | null;
+  }[];
 }
 
 export type Verdict = "agree" | "disagree" | "unsure";

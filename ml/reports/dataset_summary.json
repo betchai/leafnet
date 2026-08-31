@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-08-30T05:18:06.411311+00:00",
+  "generated_at": "2026-08-30T16:36:53.126996+00:00",
   "dataset_version": null,
   "research_images": 200,
-  "approved_images": 2000,
+  "approved_images": 2019,
   "dev_fixtures_excluded": 0,
   "target": {
     "total": 2000,
@@ -10,12 +10,12 @@
     "shortfall_total": 0
   },
   "composition_from_api": {
-    "totalAcquired": 2000,
-    "validated": 2000,
+    "totalAcquired": 2023,
+    "validated": 2023,
     "needsReview": 0,
-    "annotated": 0,
+    "annotated": 4,
     "expertVerified": 0,
-    "approved": 2000,
+    "approved": 2019,
     "rejected": 0,
     "uncertain": 0,
     "secondOpinion": 0
@@ -30,26 +30,26 @@
       "uncertain": 0
     },
     "leaf_rust": {
-      "acquired": 500,
-      "annotated": 500,
-      "verified": 500,
-      "approved": 500,
+      "acquired": 504,
+      "annotated": 504,
+      "verified": 504,
+      "approved": 504,
       "rejected": 0,
       "uncertain": 0
     },
     "leaf_spot": {
-      "acquired": 500,
-      "annotated": 500,
-      "verified": 500,
-      "approved": 500,
+      "acquired": 508,
+      "annotated": 508,
+      "verified": 508,
+      "approved": 508,
       "rejected": 0,
       "uncertain": 0
     },
     "leaf_blight": {
-      "acquired": 500,
-      "annotated": 500,
-      "verified": 500,
-      "approved": 500,
+      "acquired": 507,
+      "annotated": 507,
+      "verified": 507,
+      "approved": 507,
       "rejected": 0,
       "uncertain": 0
     }
@@ -63,25 +63,29 @@
         "by_status": {}
       },
       "leaf_rust": {
-        "count": 0,
-        "pct_of_labeled": 0.0,
-        "by_status": {}
+        "count": 4,
+        "pct_of_labeled": 2.0,
+        "by_status": {
+          "APPROVED": 4
+        }
       },
       "leaf_spot": {
-        "count": 200,
-        "pct_of_labeled": 100.0,
+        "count": 185,
+        "pct_of_labeled": 92.5,
         "by_status": {
-          "APPROVED": 200
+          "APPROVED": 185
         }
       },
       "leaf_blight": {
-        "count": 0,
-        "pct_of_labeled": 0.0,
-        "by_status": {}
+        "count": 7,
+        "pct_of_labeled": 3.5,
+        "by_status": {
+          "APPROVED": 7
+        }
       }
     },
     "target_pct_per_class": 25.0,
-    "unlabeled_or_unclassified": 0
+    "unlabeled_or_unclassified": 4
   },
   "metadata_completeness": [
     {
@@ -94,16 +98,16 @@
     {
       "field": "source_type",
       "kind": "required",
-      "populated": 200,
-      "missing": 0,
-      "pct_complete": 100.0
+      "populated": 177,
+      "missing": 23,
+      "pct_complete": 88.5
     },
     {
       "field": "license",
       "kind": "required",
-      "populated": 200,
-      "missing": 0,
-      "pct_complete": 100.0
+      "populated": 177,
+      "missing": 23,
+      "pct_complete": 88.5
     },
     {
       "field": "capture_date",
@@ -191,8 +195,8 @@
     }
   ],
   "technical_characteristics_count": 200,
-  "duplicate_groups_research": 0,
-  "open_duplicate_relations_in_db": 0,
+  "duplicate_groups_research": 7,
+  "open_duplicate_relations_in_db": 10,
   "leakage_group_summary": {},
   "outliers_flagged": 200,
   "note": null

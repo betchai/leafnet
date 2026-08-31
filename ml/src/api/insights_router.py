@@ -38,6 +38,9 @@ def insights(
     prep_dir = ML_ROOT / "data" / "prepared"
     if prep_dir.exists():
         candidates = sorted(prep_dir.glob(f"{dataset_id or '*'}_*.jsonl"))
+        # Prefer the grouped (non-PILOT) manifest: it reflects the split the
+        # registered models were actually trained/evaluated on.
+        candidates = [c for c in candidates if "_PILOT" not in c.name] or candidates
         if candidates:
             with candidates[-1].open() as f:
                 rows = [json.loads(l) for l in f if l.strip()]

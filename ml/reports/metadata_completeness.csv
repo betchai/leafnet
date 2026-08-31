@@ -1,7 +1,7 @@
 field,kind,populated,missing,pct_complete
 source,required,200,0,100.0
-source_type,required,200,0,100.0
-license,required,200,0,100.0
+source_type,required,177,23,88.5
+license,required,177,23,88.5
 capture_date,optional,0,200,0.0
 location,optional,0,200,0.0
 cultivar,optional,0,200,0.0

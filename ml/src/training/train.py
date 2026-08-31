@@ -77,9 +77,19 @@ def run_experiment(exp_id: str, manifest_path: Path, config: dict,
     model.to(device)
     params = trainable_parameters(model)
 
-    optimizer = torch.optim.Adam(
-        [p for p in model.parameters() if p.requires_grad],
-        lr=d["learningRateHead"], weight_decay=d["weightDecay"])
+    # Discriminative fine-tuning: the freshly-initialized classification head
+    # learns faster (1e-4) than the pretrained feature blocks that are unfrozen
+    # for fine-tuning (1e-5). A frozen-backbone baseline has no backbone group.
+    lr_head = d["learningRateHead"]
+    lr_backbone = d["learningRateBackbone"]
+    head_params = [p for n, p in model.named_parameters()
+                   if p.requires_grad and "classifier_head" in n]
+    backbone_params = [p for n, p in model.named_parameters()
+                       if p.requires_grad and "classifier_head" not in n]
+    param_groups = [{"params": head_params, "lr": lr_head}]
+    if backbone_params:
+        param_groups.append({"params": backbone_params, "lr": lr_backbone})
+    optimizer = torch.optim.Adam(param_groups, weight_decay=d["weightDecay"])
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
         optimizer, factor=d["schedulerFactor"], patience=d["schedulerPatience"])
     criterion = nn.CrossEntropyLoss()

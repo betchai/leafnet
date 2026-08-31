@@ -140,3 +140,24 @@ Dataset version: v1.0 · Pilot fallback: True
 Dataset version: V1.0 · Pilot fallback: True
 
 - `V1.0_r2_EXP-V1.0-FT`: accuracy **0.845**, macro F1 **0.85**, test n=200
+
+### Pipeline run 4cfce55f880b — 2026-08-30T09:42:19.722839+00:00
+
+Dataset version: V1.0 · Pilot fallback: False
+
+- `V1.0_r3_EXP-V1.0-B`: accuracy **0.6675**, macro F1 **0.6643**, test n=400
+- `V1.0_r3_EXP-V1.0-FT`: accuracy **0.6875**, macro F1 **0.6809**, test n=400
+
+### Pipeline run aaa671dde327 — 2026-08-30T16:32:26.509282+00:00
+
+Dataset version: V1.1 · Pilot fallback: False
+
+- `V1.1_EXP-V1.1-B`: accuracy **0.6114**, macro F1 **0.6173**, test n=404
+- `V1.1_EXP-V1.1-FT`: accuracy **0.646**, macro F1 **0.6508**, test n=404
+
+### Pipeline run 820f865542f4 — 2026-08-30T17:48:03.511007+00:00
+
+Dataset version: V1.1 · Pilot fallback: False
+
+- `V1.1_EXP-V1.1-B`: accuracy **0.6114**, macro F1 **0.6173**, test n=404
+- `V1.1_EXP-V1.1-FT`: accuracy **0.6708**, macro F1 **0.6774**, test n=404

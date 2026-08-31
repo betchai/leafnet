@@ -1,0 +1,56 @@
+{
+  "SWP_unfreeze3": {
+    "experiment": "SWP_unfreeze3",
+    "unfreeze_last_n_blocks": 3,
+    "epochs_budget": 20,
+    "patience": 5,
+    "best_epoch": 5,
+    "best_val_accuracy": 0.806,
+    "early_stopped_at": 10
+  },
+  "SWP_unfreeze18": {
+    "experiment": "SWP_unfreeze18",
+    "unfreeze_last_n_blocks": 18,
+    "epochs_budget": 20,
+    "patience": 5,
+    "best_epoch": 5,
+    "best_val_accuracy": 0.806,
+    "early_stopped_at": 10
+  },
+  "SWP_u5_e40": {
+    "experiment": "SWP_u5_e40",
+    "unfreeze_last_n_blocks": 5,
+    "epochs_budget": 40,
+    "patience": 8,
+    "best_epoch": 5,
+    "best_val_accuracy": 0.806,
+    "early_stopped_at": 13
+  },
+  "u0_hist": {
+    "experiment": "u0_hist",
+    "unfreeze_last_n_blocks": 0,
+    "epochs_budget": 20,
+    "patience": 5,
+    "best_epoch": 20,
+    "best_val_accuracy": 0.694,
+    "early_stopped_at": null,
+    "duration_seconds": 1918.3
+  },
+  "u5_hist": {
+    "experiment": "u5_hist",
+    "unfreeze_last_n_blocks": 5,
+    "epochs_budget": 20,
+    "patience": 5,
+    "best_epoch": 5,
+    "best_val_accuracy": 0.806,
+    "early_stopped_at": 10,
+    "duration_seconds": 1637.2
+  },
+  "meta": {
+    "manifest": "/Users/betchai/Developer/learning/leafnet/ml/data/prepared/cmtfa8pl20gz5yc87u3ahpdmk_seed42.jsonl",
+    "src": "design: sweep unfreeze-last-N-blocks; document epochs budget grounding",
+    "device": "cpu (same as r3 official runs)",
+    "created": "2026-08-30T13:35:14Z",
+    "total_seconds": 5847.2
+  }
+}

@@ -38,11 +38,15 @@ export default function FeedbackReviewTool() {
 
   async function review(id: string, action: string) {
     if (!reviewer) return setMsg("Enter the expert reviewer name first.");
+    const item = items.find((i) => i.feedbackId === id);
+    const verifiedClass =
+      action === "verify"
+        ? corrections[id] || item?.suggestedClass || (item?.verdict === "agree" ? item?.prediction.predictedClass : null)
+        : corrections[id];
     const body: Record<string, unknown> = {
       actor: reviewer, actorRole: "expert", action,
-      verifiedClass: corrections[id], reason: notes || undefined,
+      verifiedClass: verifiedClass ?? undefined, reason: notes || undefined,
     };
-    if (action === "verify") body.verifiedClass ||= undefined;
     const r = await fetch(`/api/tools/feedback/${id}/review`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -100,27 +104,33 @@ export default function FeedbackReviewTool() {
               </details>
 
               <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                {["SUBMITTED", "NEEDS_REVIEW"].includes(it.reviewStatus) && (
+                {["SUBMITTED", "NEEDS_REVIEW", "UNDER_REVIEW"].includes(it.reviewStatus) && (
                   <>
-                    <button onClick={() => review(it.feedbackId, "start_review")}
-                      className="px-2 py-1 rounded text-xs border hover:bg-gray-50">Start review</button>
-                    <button onClick={() => review(it.feedbackId, "verify")}
-                      className="px-2 py-1 rounded text-xs bg-green-600 text-white"
-                      disabled={!it.suggestedClass}>
-                      ✓ Verify{suggestedLabel(it)}
-                    </button>
-                    <select className="border rounded text-xs px-1 py-0.5"
-                      aria-label={`Corrected class for ${it.feedbackId}`}
-                      value={corrections[it.feedbackId] ?? ""}
-                      onChange={(e) => setCorrections({ ...corrections, [it.feedbackId]: e.target.value })}>
-                      <option value="">Correct to…</option>
-                      {CLASSES.map((c) => <option key={c} value={c}>{c}</option>)}
-                    </select>
-                    <button disabled={!corrections[it.feedbackId]}
-                      onClick={() => review(it.feedbackId, "verify_corrected", )}
-                      className="px-2 py-1 rounded text-xs border border-amber-400 text-amber-700 disabled:opacity-40">
-                      Verify corrected
-                    </button>
+                    {["SUBMITTED", "NEEDS_REVIEW"].includes(it.reviewStatus) && (
+                      <button onClick={() => review(it.feedbackId, "start_review")}
+                        className="px-2 py-1 rounded text-xs border hover:bg-gray-50">Start review</button>
+                    )}
+                    {["NEEDS_REVIEW", "UNDER_REVIEW"].includes(it.reviewStatus) && (
+                      <>
+                        <button onClick={() => review(it.feedbackId, "verify")}
+                          className="px-2 py-1 rounded text-xs bg-green-600 text-white"
+                          disabled={!it.suggestedClass && it.verdict !== "agree"}>
+                          ✓ Verify{suggestedLabel(it)}
+                        </button>
+                        <select className="border rounded text-xs px-1 py-0.5"
+                          aria-label={`Corrected class for ${it.feedbackId}`}
+                          value={corrections[it.feedbackId] ?? ""}
+                          onChange={(e) => setCorrections({ ...corrections, [it.feedbackId]: e.target.value })}>
+                          <option value="">Correct to…</option>
+                          {CLASSES.map((c) => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                        <button disabled={!corrections[it.feedbackId]}
+                          onClick={() => review(it.feedbackId, "verify_corrected", )}
+                          className="px-2 py-1 rounded text-xs border border-amber-400 text-amber-700 disabled:opacity-40">
+                          Verify corrected
+                        </button>
+                      </>
+                    )}
                     <button onClick={() => review(it.feedbackId, "mark_uncertain")}
                       className="px-2 py-1 rounded text-xs border border-gray-300">Uncertain</button>
                     <button onClick={() => review(it.feedbackId, "reject")}
@@ -142,6 +152,6 @@ export default function FeedbackReviewTool() {
 }
 
 function suggestedLabel(it: FeedbackItem) {
-  const c = it.suggestedClass ?? it.verifiedClass;
+  const c = it.suggestedClass ?? it.verifiedClass ?? (it.verdict === "agree" ? it.prediction.predictedClass : null);
   return c ? ` (${c})` : "";
 }

@@ -21,6 +21,7 @@ Usage note: long-running (CPU). Poll status from the UI.
 from __future__ import annotations
 
 import json
+import os
 import sys
 import threading
 import traceback
@@ -160,7 +161,11 @@ def _run_job(job: dict, params: dict):
                 exp_id=exp["id"], manifest_path=manifest_path, config=config,
                 dataset_version=params["versionLabel"],
                 notes=exp.get("notes", ""),
-                freeze_backbone=(exp["strategy"] == "baseline"),
+                # Partial fine-tuning: the pretrained backbone is FROZEN and only
+                # the final `fineTuneLayers` blocks are unfrozen (controlled
+                # variable). A baseline (strategy="baseline") has fineTuneLayers=0,
+                # so the backbone stays fully frozen and only the head learns.
+                freeze_backbone=True,
                 fine_tune_layers=exp.get("fineTuneLayers", 0),
                 epochs=exp.get("epochs"),
                 on_epoch=on_epoch,
@@ -170,6 +175,7 @@ def _run_job(job: dict, params: dict):
 
         # ---- Step 11: evaluation (one pass per candidate) ----
         for exp_id, model_dir in trained:
+            meta = json.loads((model_dir / "metadata.json").read_text())
             job["steps"][f"evaluate_{model_dir.name}"] = {"status": "running"}
             _log(job, f"Step 11: evaluating {model_dir.name}")
             result = evaluate_candidate(exp_id, model_dir, manifest_path,
@@ -247,7 +253,15 @@ def start_pipeline(params: dict):
     }
     with _lock:
         _jobs[job_id] = job
-    threading.Thread(target=_run_job, args=(job, {**params, "apiBase": "http://localhost:4000"}), daemon=True).start()
+    run_params = {
+        **params,
+        "apiBase": (
+            params.get("apiBase")
+            or os.environ.get("LEAFNET_API_BASE")
+            or "http://localhost:4000"
+        ).rstrip("/"),
+    }
+    threading.Thread(target=_run_job, args=(job, run_params), daemon=True).start()
     return {"jobId": job_id}
 
 

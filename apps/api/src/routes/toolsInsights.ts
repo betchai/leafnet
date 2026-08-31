@@ -10,9 +10,19 @@ const router = Router();
 const ml = () => process.env.ML_SERVICE_URL ?? "";
 
 router.get("/", async (req, res) => {
-  const version = (req.query.dataset_version as string) ?? "v0.2";
+  // Default to the ACTIVE model's dataset lineage when the caller doesn't pin
+  // one — evaluation artifacts are keyed by that dataset's version (e.g. V1.0).
+  // Fall back to the most recently cut dataset, then to a safe placeholder.
+  const active = await prisma.modelVersion.findFirst({
+    where: { isActive: true },
+    include: { dataset: true },
+  });
+  const latest = await prisma.dataset.findFirst({ orderBy: { createdAt: "desc" } });
+  const fallback = active?.dataset ?? latest;
+  const version = (req.query.dataset_version as string) ?? fallback?.version ?? "v0.2";
+  const datasetId = (req.query.dataset_id as string) ?? fallback?.id ?? "";
   try {
-    const r = await fetch(`${ml()}/insights?dataset_version=${encodeURIComponent(version)}&dataset_id=${req.query.dataset_id ?? ""}`);
+    const r = await fetch(`${ml()}/insights?dataset_version=${encodeURIComponent(version)}&dataset_id=${encodeURIComponent(datasetId)}`);
     if (!r.ok) return res.status(r.status).json(await r.json());
     const research = await r.json();
 

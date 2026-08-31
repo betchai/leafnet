@@ -1,0 +1,5 @@
+Actual \ Predicted,healthy,leaf_rust,leaf_spot,leaf_blight
+healthy,100,0,0,0
+leaf_rust,0,68,27,5
+leaf_spot,0,11,37,52
+leaf_blight,0,22,8,70

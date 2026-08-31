@@ -8,7 +8,7 @@ export const MANIFEST_FIELDS = [
   "image_id", "path", "source", "source_type", "license",
   "class", "severity", "plant_id", "leaf_id", "farm_id",
   "collection_session_id", "split", "annotation_status", "review_status",
-  "dataset_version",
+  "dataset_version", "sha256",
 ] as const;
 
 /**
@@ -47,6 +47,7 @@ router.get("/:id/manifest", async (req, res) => {
         : img.annotations[0]?.stage === "EXPERT_REVIEW" ? "expert_review"
         : null,
       dataset_version: dataset.version,
+      sha256: img.sha256,
     };
     res.write(
       JSON.stringify(Object.fromEntries(MANIFEST_FIELDS.map((f) => [f, row[f]]))) + "\n"

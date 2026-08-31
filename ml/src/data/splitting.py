@@ -43,6 +43,60 @@ def _group_key(row: dict, ignore_groups: bool = False) -> str | None:
     return None
 
 
+def _identifiers(row: dict) -> list[str]:
+    """Every identity an image belongs to: provenance keys AND its content hash.
+
+    Images sharing any identifier are treated as ONE leakage group, so exact
+    duplicates (same sha256) can never straddle train/validation/test even when
+    they were uploaded under different collection sessions.
+    """
+    idents = [
+        f"{key}={row[key]}"
+        for key in GROUP_KEYS
+        if row.get(key)
+    ]
+    if row.get("sha256"):
+        idents.append(f"sha256={row['sha256']}")
+    return idents
+
+
+def _union_find_groups(rows: list[dict]) -> dict[str, list[dict]]:
+    """Group images by connected components over shared identifiers."""
+    parent: dict[str, str] = {}
+
+    def root(x: str) -> str:
+        parent.setdefault(x, x)
+        if parent[x] != x:
+            parent[x] = root(parent[x])
+        return parent[x]
+
+    def union(a: str, b: str) -> None:
+        ra, rb = root(a), root(b)
+        if ra != rb:
+            parent[rb] = ra
+
+    # union each image node with the nodes of every identifier it has.
+    # Images with NO identifiers stay out of `groups` — they are ungrouped and
+    # handled by the stratified fill, matching the pre-union-find behavior.
+    joined: set[str] = set()
+    for row in rows:
+        idents = _identifiers(row)
+        if not idents:
+            continue
+        iid = f"img:{row['image_id']}"
+        root(iid)
+        joined.add(iid)
+        for ident in idents:
+            union(iid, ident)
+
+    groups: dict[str, list[dict]] = defaultdict(list)
+    for row in rows:
+        iid = f"img:{row['image_id']}"
+        if iid in joined:
+            groups[root(iid)].append(row)
+    return groups
+
+
 def _split_group_counts(n: int) -> tuple[int, int, int]:
     """(train, validation, test) group counts for a class with `n` groups.
 
@@ -70,6 +124,27 @@ def _split_group_counts(n: int) -> tuple[int, int, int]:
     return (train, val, test)
 
 
+def _nearest_subset(items: list[tuple[int, str]], target: int) -> list[str]:
+    """Return the component ids whose total size best matches `target`.
+
+    Deterministic: components arrive pre-sorted by (size, id); among equally
+    close subsets the one with the larger total wins (favors a fuller split).
+    Component counts are small (< dozen per class), so exhaustive search is fine.
+    """
+    n = len(items)
+    if n == 0:
+        return []
+    best_diff: int | None = None
+    best_sum = -1
+    best_mask = 0
+    for mask in range(1 << n):
+        s = sum(items[i][0] for i in range(n) if (mask >> i) & 1)
+        diff = abs(target - s)
+        if best_diff is None or diff < best_diff or (diff == best_diff and s > best_sum):
+            best_diff, best_sum, best_mask = diff, s, mask
+    return [items[i][1] for i in range(n) if (best_mask >> i) & 1]
+
+
 def create_grouped_splits(rows: list[dict], seed: int = 42, ignore_groups: bool = False) -> dict:
     """Assign each row a 'split' field. Returns rows + audit metadata.
 
@@ -79,14 +154,22 @@ def create_grouped_splits(rows: list[dict], seed: int = 42, ignore_groups: bool 
     rng = random.Random(seed)
     out = [dict(r) for r in rows]
 
-    groups: dict[str, list[dict]] = defaultdict(list)
-    ungrouped: list[dict] = []
-    for row in out:
-        gk = _group_key(row, ignore_groups=ignore_groups)
-        if gk is None:
-            ungrouped.append(row)
-        else:
-            groups[gk].append(row)
+    if ignore_groups:
+        # PILOT: image-level split; grouping keys and hashes are retained in the
+        # rows but not used for assignment (documented fallback).
+        groups: dict[str, list[dict]] = defaultdict(list)
+        ungrouped: list[dict] = []
+        for row in out:
+            gk = _group_key(row, ignore_groups=True)
+            if gk is None:
+                ungrouped.append(row)
+            else:
+                groups[gk].append(row)
+    else:
+        groups = _union_find_groups(out)
+        ungrouped = [
+            r for r in out if not _identifiers(r)
+        ]
 
     # Group-level split assignment, stratified by the group's dominant class
     by_class_groups: dict[str, list[str]] = defaultdict(list)
@@ -100,18 +183,29 @@ def create_grouped_splits(rows: list[dict], seed: int = 42, ignore_groups: bool 
         else:
             by_class_groups[dominant].append(gid)
 
+    # Per class, components are assigned to test/validation/train by SIZE so the
+    # test and validation splits each hold ~20% of that class's images, as near
+    # to the target as component granularity allows (nearest-subset fit). This
+    # keeps per-class test support balanced even when many training photos share
+    # a handful of large collection sessions.
     split_of_group: dict[str, str] = {}
     for cls, gids in by_class_groups.items():
-        rng.shuffle(gids)
-        n = len(gids)
-        n_train, n_val, _ = _split_group_counts(n)
-        for i, gid in enumerate(gids):
-            if i < n_train:
+        items = sorted((len(groups[gid]), gid) for gid in gids)
+        total = sum(s for s, _ in items)
+        if total == 0:
+            continue
+        t_test = round(total * 0.20)
+        t_val = round(total * 0.20)
+        test_ids = set(_nearest_subset(items, t_test))
+        rest = [it for it in items if it[1] not in test_ids]
+        val_ids = set(_nearest_subset(rest, t_val))
+        for gid in test_ids:
+            split_of_group[gid] = "test"
+        for gid in val_ids:
+            split_of_group[gid] = "validation"
+        for gid in gids:
+            if gid not in split_of_group:
                 split_of_group[gid] = "train"
-            elif i < n_train + n_val:
-                split_of_group[gid] = "validation"
-            else:
-                split_of_group[gid] = "test"
 
     for gid in singleton_class_groups:
         split_of_group[gid] = "train"  # unlabeled groups stay in training pool
@@ -142,13 +236,27 @@ def create_grouped_splits(rows: list[dict], seed: int = 42, ignore_groups: bool 
         if not placed:
             row["split"] = "train"
 
+    # Audit: how many groups were forged purely because identical-content images
+    # (same sha256) were uploaded under different provenance keys.
+    hash_locked = 0
+    if not ignore_groups:
+        by_hash: dict[str, set[str]] = defaultdict(set)
+        for row in out:
+            if row.get("sha256"):
+                by_hash[row["sha256"]].add(row["image_id"])
+        locked = {
+            frozenset(ids) for ids in by_hash.values() if len(ids) > 1
+        }
+        hash_locked = len(locked)
+
     return {
         "rows": out,
         "audit": {
             "num_groups": len(groups),
+            "duplicate_locked_groups": hash_locked,
             "ungrouped_images": len(ungrouped),
             "strategy": (
-                "group_aware" if groups else
+                "group_aware_union_find" if groups else
                 "image_level_random_fallback_no_grouping_metadata_available"
             ),
             "seed": seed,

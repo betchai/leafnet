@@ -1,6 +1,6 @@
 {
   "experiment_id": "EXP-TEST",
-  "trained_at": "2026-08-30T04:26:21.848044+00:00",
+  "trained_at": "2026-08-30T17:49:55.695678+00:00",
   "dataset_version": "vDEVFIXTURES",
   "architecture": "mobilenet_v2",
   "pretrained_weights": "torchvision.IMAGENET1K_V2",

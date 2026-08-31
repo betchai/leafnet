@@ -1,0 +1,102 @@
+{
+  "status": "OK",
+  "experiment_id": "r3_EXP-V1.0-B",
+  "model_version": "V1.0_r3_EXP-V1.0-B",
+  "dataset_version": "V1.0",
+  "evaluated_at": "2026-08-30T09:41:58.568373+00:00",
+  "integrity": {
+    "ok": true,
+    "problems": [],
+    "test_size": 400,
+    "test_classes": {
+      "healthy": 100,
+      "leaf_rust": 100,
+      "leaf_blight": 100,
+      "leaf_spot": 100
+    },
+    "note": "Target research test size is 200. Small sizes make metrics statistically meaningless."
+  },
+  "test_size": 400,
+  "statistical_warning": "n=400 test images (target 200). Metrics are computed formally but carry no statistical significance at this size.",
+  "metrics": {
+    "accuracy": 0.6675,
+    "per_class": {
+      "healthy": {
+        "precision": 0.9091,
+        "recall": 1.0,
+        "f1": 0.9524,
+        "support": 100
+      },
+      "leaf_rust": {
+        "precision": 0.7191,
+        "recall": 0.64,
+        "f1": 0.6772,
+        "support": 100
+      },
+      "leaf_spot": {
+        "precision": 0.4909,
+        "recall": 0.54,
+        "f1": 0.5143,
+        "support": 100
+      },
+      "leaf_blight": {
+        "precision": 0.5385,
+        "recall": 0.49,
+        "f1": 0.5131,
+        "support": 100
+      }
+    },
+    "macro": {
+      "precision": 0.6644,
+      "recall": 0.6675,
+      "f1": 0.6643
+    },
+    "weighted": {
+      "precision": 0.6644,
+      "recall": 0.6675,
+      "f1": 0.6643
+    }
+  },
+  "confusion_matrix": {
+    "columns_predicted": [
+      "healthy",
+      "leaf_rust",
+      "leaf_spot",
+      "leaf_blight"
+    ],
+    "rows_actual": {
+      "healthy": [
+        100,
+        0,
+        0,
+        0
+      ],
+      "leaf_rust": [
+        1,
+        64,
+        33,
+        2
+      ],
+      "leaf_spot": [
+        5,
+        1,
+        54,
+        40
+      ],
+      "leaf_blight": [
+        4,
+        24,
+        23,
+        49
+      ]
+    }
+  },
+  "confidence_analysis": {
+    "mean_confidence_correct": 0.6272,
+    "mean_confidence_incorrect": 0.4401,
+    "high_confidence_errors_ge_0.8": 0,
+    "difficult_cases_margin_lt_0.10_or_conf_lt_0.5": 220,
+    "calibration_note": "Calibration (ECE/reliability diagram) intentionally NOT computed: requires meaningful test n."
+  },
+  "_rules_honored": "test set untouched; model weights untouched; single evaluation pass"
+}

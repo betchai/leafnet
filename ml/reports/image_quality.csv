@@ -1,4 +1,27 @@
 image_id,width,height,aspect_ratio,format,mode,size_bytes,flags,brightness_mean,contrast_std,sharpness_gradient
+cmtfus2a10029ychk2p375va9,259,194,1.335,jpeg,RGB,8337,[],131.4,44.5,10.83
+cmtfuopyv001sychkw97w4rmf,184,184,1.0,jpeg,RGB,6428,[],128.4,53.3,9.07
+cmtfuoi29001pychkbg5umckh,182,216,0.843,jpeg,RGB,6866,[],72.4,32.4,7.38
+cmtfuo6fo001mychkb2cia221,259,194,1.335,jpeg,RGB,8337,[],131.4,44.5,10.83
+cmtfpwara000pycrcj890trwc,1513,2048,0.739,jpeg,RGB,142915,['possibly_blurry'],150.2,48.0,1.16
+cmtfpw50f000kycrcucis4pon,940,529,1.777,jpeg,RGB,152235,[],135.7,42.1,6.1
+cmtfpvzms000fycrcnd7hz66u,375,500,0.75,jpeg,RGB,115164,[],136.0,52.8,13.46
+cmtfpvs4z000cycrcd862msd4,375,500,0.75,jpeg,RGB,109931,[],132.9,43.9,15.88
+cmtfpueik0007ycrcry328skp,940,529,1.777,jpeg,RGB,152235,[],135.7,42.1,6.1
+cmtfnp7sk0014ycr9vipfge8b,375,500,0.75,jpeg,RGB,115164,[],136.0,52.8,13.46
+cmtfhlyex000mycqdkiu8kfzh,1330,2048,0.649,jpeg,RGB,173652,['possibly_blurry'],143.1,67.1,1.91
+cmtfhf4yn000eycqdpoz8gta0,1428,1702,0.839,jpeg,RGB,183257,"['unusually_high_contrast', 'possibly_blurry']",177.5,85.7,2.66
+cmtfhbksc0009ycqd5so77lu1,1836,2424,0.757,jpeg,RGB,427972,['possibly_blurry'],182.5,69.0,1.86
+cmtfh9dkz0006ycqdrwcboeo0,1836,2424,0.757,jpeg,RGB,427972,['possibly_blurry'],182.5,69.0,1.86
+cmtfh8jkg0003ycqdf7wny1mu,1836,2424,0.757,jpeg,RGB,427972,['possibly_blurry'],182.5,69.0,1.86
+cmtfh8fde0000ycqd8o77d3vd,1836,2424,0.757,jpeg,RGB,427972,['possibly_blurry'],182.5,69.0,1.86
+cmtffi5yk0026yc0efls9lljv,1608,1989,0.808,jpeg,RGB,194075,['possibly_blurry'],175.5,79.8,1.86
+cmtffc8s1001tyc0e10my8b6t,1513,2048,0.739,jpeg,RGB,142915,['possibly_blurry'],150.2,48.0,1.16
+cmtfezjpv001nyc0earuksjso,1515,1476,1.026,jpeg,RGB,130490,['possibly_blurry'],159.2,35.2,1.58
+cmtfev4nk001eyc0exaux5vdd,1428,1702,0.839,jpeg,RGB,183257,"['unusually_high_contrast', 'possibly_blurry']",177.5,85.7,2.66
+cmtfel6oz000eyc0e30bv9hx5,1279,2048,0.625,jpeg,RGB,226135,['possibly_blurry'],133.6,59.1,3.02
+cmtfegygo0007yc0e35lbzh2m,1610,2005,0.803,jpeg,RGB,186706,['possibly_blurry'],201.1,81.3,2.1
+cmtfedri70002yc0eh1sxmdf6,1610,2005,0.803,jpeg,RGB,186706,['possibly_blurry'],201.1,81.3,2.1
 cmtfa7hz50cccyc875ifb3odi,1266,1728,0.733,jpeg,RGB,210761,"['unusually_high_contrast', 'possibly_blurry']",186.0,87.3,2.32
 cmtfa7hz10cc7yc87sfgup3ra,1722,2735,0.63,jpeg,RGB,494198,"['unusually_high_contrast', 'possibly_blurry']",185.2,88.0,2.47
 cmtfa7hyv0cc2yc87v7x16ymc,1836,2846,0.645,jpeg,RGB,520129,"['unusually_high_contrast', 'possibly_blurry']",178.7,86.8,2.2
@@ -176,26 +199,3 @@ cmtfa6vlv0bobyc87edd369tl,1828,3236,0.565,jpeg,RGB,835389,"['unusually_high_cont
 cmtfa6vls0bo6yc874o74h8ib,1836,2881,0.637,jpeg,RGB,510387,['possibly_blurry'],190.1,78.5,2.06
 cmtfa6vlq0bo1yc87naxd6ota,1773,2078,0.853,jpeg,RGB,413889,"['unusually_high_contrast', 'possibly_blurry']",164.8,92.9,2.5
 cmtfa6vln0bnwyc874ycim3yz,1504,2525,0.596,jpeg,RGB,474829,"['unusually_high_contrast', 'possibly_blurry']",170.0,97.8,3.34
-cmtfa6vlj0bnryc87a57m86y1,1816,2796,0.649,jpeg,RGB,563452,"['unusually_high_contrast', 'possibly_blurry']",173.8,90.6,2.35
-cmtfa6vlg0bnmyc87a3q04wtu,1628,2507,0.649,jpeg,RGB,481613,"['unusually_high_contrast', 'possibly_blurry']",177.1,95.5,3.27
-cmtfa6vle0bnhyc87l8ycf365,1259,2011,0.626,jpeg,RGB,246214,"['unusually_high_contrast', 'possibly_blurry']",182.0,87.7,2.3
-cmtfa6vlc0bncyc87tqfehopw,1280,1789,0.715,jpeg,RGB,229256,"['unusually_high_contrast', 'possibly_blurry']",178.9,88.6,2.46
-cmtfa6vla0bn7yc87561ilnzq,1410,2381,0.592,jpeg,RGB,402402,"['unusually_high_contrast', 'possibly_blurry']",172.1,97.5,3.25
-cmtfa6vl70bn2yc872hj0sp47,1241,2023,0.613,jpeg,RGB,268705,"['unusually_high_contrast', 'possibly_blurry']",176.2,85.4,2.31
-cmtfa6vl50bmxyc87sdzkirla,1463,2528,0.579,jpeg,RGB,413631,"['unusually_high_contrast', 'possibly_blurry']",169.9,100.1,2.93
-cmtfa6vl30bmsyc8741hoazqp,1836,2858,0.642,jpeg,RGB,452292,['possibly_blurry'],182.3,84.9,1.86
-cmtfa6vl10bmnyc87htdmi7hn,1486,2542,0.585,jpeg,RGB,291646,['possibly_blurry'],194.0,83.0,1.57
-cmtfa6vky0bmiyc87a1nsabqk,1721,2553,0.674,jpeg,RGB,382983,['possibly_blurry'],175.5,77.6,1.65
-cmtfa6vkw0bmdyc8721vz7qqt,1751,2536,0.69,jpeg,RGB,395051,"['unusually_high_contrast', 'possibly_blurry']",181.9,89.0,1.8
-cmtfa6vkt0bm8yc87hivx4ncm,1328,1944,0.683,jpeg,RGB,262962,"['unusually_high_contrast', 'possibly_blurry']",170.6,87.9,2.3
-cmtfa6vko0bm3yc87xw2f8a7k,1145,1918,0.597,jpeg,RGB,174156,['possibly_blurry'],187.6,75.8,1.59
-cmtfa5toc0blyyc87q8fyppfh,1686,2680,0.629,jpeg,RGB,367542,"['unusually_high_contrast', 'possibly_blurry']",177.4,94.8,1.5
-cmtfa5to80bltyc87qkgxqjgb,1673,2216,0.755,jpeg,RGB,296650,"['unusually_high_contrast', 'possibly_blurry']",167.0,87.6,1.39
-cmtfa5to30bloyc8754ao4b84,1728,2328,0.742,jpeg,RGB,473112,"['unusually_high_contrast', 'possibly_blurry']",156.6,97.5,2.67
-cmtfa5tny0bljyc87ghjqwut3,1757,2454,0.716,jpeg,RGB,399601,"['unusually_high_contrast', 'possibly_blurry']",161.4,97.9,1.77
-cmtfa5tnt0bleyc87klvcabkz,1643,2105,0.781,jpeg,RGB,322711,"['unusually_high_contrast', 'possibly_blurry']",177.3,88.4,2.04
-cmtfa5tnl0bl9yc87n27zv84p,1694,2090,0.811,jpeg,RGB,444493,"['unusually_high_contrast', 'possibly_blurry']",157.6,97.9,3.19
-cmtfa5tni0bl4yc87wo5kr47v,1706,2658,0.642,jpeg,RGB,343354,"['unusually_high_contrast', 'possibly_blurry']",189.5,85.8,1.52
-cmtfa5tnd0bkzyc87na2med4y,1670,2055,0.813,jpeg,RGB,314765,"['unusually_high_contrast', 'possibly_blurry']",168.7,98.0,1.85
-cmtfa5tn90bkuyc87akowgguu,1614,2590,0.623,jpeg,RGB,349226,"['unusually_high_contrast', 'possibly_blurry']",181.6,86.8,1.64
-cmtfa5tn50bkpyc87c456m8ds,1666,2682,0.621,jpeg,RGB,360232,"['unusually_high_contrast', 'possibly_blurry']",171.4,89.8,1.36

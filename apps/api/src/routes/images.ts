@@ -31,6 +31,22 @@ router.get("/", async (req, res) => {
     },
     include: {
       classifications: true,
+      annotations: {
+        where: { stage: "PRELIMINARY" },
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        select: { preliminaryLabel: true, annotator: true, annotatedAt: true, reviewNotes: true },
+      },
+      predictions: {
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        select: {
+          predictedClass: true,
+          confidence: true,
+          createdAt: true,
+          modelVersion: { select: { version: true } },
+        },
+      },
       _count: { select: { predictions: true, audits: true, relationsA: true, relationsB: true } },
     },
     orderBy: { createdAt: "desc" },

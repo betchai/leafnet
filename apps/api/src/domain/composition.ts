@@ -44,7 +44,7 @@ export function computeComposition(images: ImageRow[]) {
     (c) => perClass[c].approved
   );
   const imbalance =
-    Math.max(...approvedPerClass, 0) - Math.min(...approvedPerClass, 0);
+    Math.max(...approvedPerClass) - Math.min(...approvedPerClass);
 
   return {
     research: {
