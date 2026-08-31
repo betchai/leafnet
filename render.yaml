@@ -54,6 +54,13 @@ services:
     envVars:
       - key: ML_PORT
         value: "8000"
+      # Base URL of the Node API. Used by the pipeline (manifest fetch,
+      # model registration) which runs inside the ML service. Without this
+      # the pipeline falls back to http://localhost:4000 and breaks on Render.
+      - key: LEAFNET_API_BASE
+        fromService:
+          name: leafnet-api
+          property: serviceProxyUrl
 
   # ── PostgreSQL Database ────────────────────────────────────────────────
   - type: database
