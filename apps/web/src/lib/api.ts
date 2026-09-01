@@ -2,6 +2,16 @@
 // Python ML service directly — always through the API.
 const BASE = "/api";
 
+export interface ExplanationCriterion {
+  key: string;
+  label: string;
+  description: string;
+  value: string | number | boolean;
+  unit: string;
+  supports: "top" | "second" | "inconclusive";
+  supports_class?: string | null;
+}
+
 async function get<T>(path: string): Promise<T> {
   const res = await fetch(`${BASE}${path}`);
   if (!res.ok) throw new Error(`GET ${path} failed: ${res.status}`);
@@ -146,7 +156,13 @@ export const api = {
   explainPrediction: async (
     predictionId: string
   ): Promise<
-    | { ok: true; predictedClass: string; secondClass: string | null; saliencyBase64: string }
+    | {
+        ok: true;
+        predictedClass: string;
+        secondClass: string | null;
+        saliencyBase64: string;
+        criteria: ExplanationCriterion[];
+      }
     | { ok: false; error: string }
   > => {
     try {

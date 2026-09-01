@@ -31,6 +31,7 @@ if str(ML_ROOT) not in sys.path:
 from src.inference import model_loader, preprocessing as pre  # noqa: E402
 from src.inference.predictor import apply_review_flag, predict_tensor  # noqa: E402
 from src.inference import saliency  # noqa: E402
+from src.inference import criteria_profiles, symptom_analysis  # noqa: E402
 from src.api.schemas import (  # noqa: E402
     HealthResponse,
     ModelInfoResponse,
@@ -265,9 +266,20 @@ async def explain(file: UploadFile = File(...)):
         log.error("%s explain render failed: %s", request_id, exc)
         raise HTTPException(status_code=500, detail="saliency rendering failed") from exc
 
+    # Symptom (B leg) + criteria votes: image-evidence "why", computed
+    # deterministically from the raw image (never from the NN internals).
+    try:
+        measurements = symptom_analysis.measure_symptoms(img)
+        criteria = criteria_profiles.evaluate_criteria(measurements, top, second)
+        measurements = {k: (v if isinstance(v, (int, float)) else v) for k, v in measurements.items()}
+    except Exception as exc:  # noqa: BLE001 — explainability must never take the service down
+        log.error("%s symptom analysis failed: %s", request_id, exc)
+        measurements = {}
+        criteria = []
+
     total_ms = round((time.perf_counter() - t0) * 1000, 2)
-    log.info("%s explain predicted=%s second=%s total_ms=%s",
-             request_id, top, second, total_ms)
+    log.info("%s explain predicted=%s second=%s criteria=%s total_ms=%s",
+             request_id, top, second, len(criteria), total_ms)
 
     return {
         "predicted_class": top,
@@ -276,6 +288,8 @@ async def explain(file: UploadFile = File(...)):
         "probabilities": result["probabilities"],
         "saliency_png_base64": base64.b64encode(png).decode(),
         "model_version": b["version_id"],
+        "criteria": criteria,
+        "measurements": measurements,
     }
 
 
@@ -296,3 +310,29 @@ async def predict_batch(files: list[UploadFile] = File(...)):
         except ValueError as exc:
             results.append({"filename": f.filename, "error": str(exc)})
     return {"model_version": b["version_id"], "results": results}
+
+
+@app.post("/tag/background")
+async def tag_background(file: UploadFile = File(...)):
+    """Model-free background classification for OOD analysis.
+
+    Available even when no model is loaded (does not require an active model).
+    Returns the derived background_type (white_removed | natural | unknown) plus
+    white_fraction / background_fraction, used at ingest to tag the image's
+    distribution so downstream eval can report covariate shift truthfully.
+    """
+    request_id = uuid.uuid4().hex[:12]
+    data = await file.read()
+    try:
+        img = pre.validate_image_bytes(data)
+    except ValueError as exc:
+        log.info("%s tag validation_rejected reason=%s", request_id, exc)
+        raise HTTPException(status_code=422, detail=str(exc)) from None
+    try:
+        result = symptom_analysis.detect_background(img)
+    except Exception as exc:  # noqa: BLE001 — tagging must never take the service down
+        log.error("%s background tag failed: %s", request_id, exc)
+        raise HTTPException(status_code=500, detail="background classification failed") from exc
+    log.info("%s tag background_type=%s white_fraction=%s",
+             request_id, result["background_type"], result["white_fraction"])
+    return result

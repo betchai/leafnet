@@ -1,8 +1,0 @@
-class,count,pct_of_labeled,target_pct
-healthy,0,0.0,25.0
-leaf_rust,4,2.0,25.0
-leaf_spot,185,92.5,25.0
-leaf_blight,7,3.5,25.0
-leaf_rust:APPROVED,4,,
-leaf_spot:APPROVED,185,,
-leaf_blight:APPROVED,7,,

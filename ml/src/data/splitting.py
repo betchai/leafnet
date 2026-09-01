@@ -171,17 +171,28 @@ def create_grouped_splits(rows: list[dict], seed: int = 42, ignore_groups: bool 
             r for r in out if not _identifiers(r)
         ]
 
-    # Group-level split assignment, stratified by the group's dominant class
+    # Group-level split assignment, stratified by the group's dominant class.
+    # Within each class, test/validation selection is additionally stratified by
+    # the group's DOMINANT background_type so the test set keeps the same
+    # background (distribution) mix as the class as a whole — this is what makes
+    # OOD / covariate-shift evaluation meaningful: if a class contains natural-
+    # background (in-situ) groups, a proportional slice lands in test rather than
+    # being drowned out by the white-removed (curated) majority.
     by_class_groups: dict[str, list[str]] = defaultdict(list)
     singleton_class_groups: list[str] = []
     for gid in sorted(groups):
-        dominant = Counter(
+        dominant_class = Counter(
             r.get("class") or "unlabeled" for r in groups[gid]
         ).most_common(1)[0][0]
-        if dominant == "unlabeled":
+        if dominant_class == "unlabeled":
             singleton_class_groups.append(gid)
         else:
-            by_class_groups[dominant].append(gid)
+            by_class_groups[dominant_class].append(gid)
+
+    def _dominant_bg(gid: str) -> str:
+        return Counter(
+            (r.get("background_type") or "unknown") for r in groups[gid]
+        ).most_common(1)[0][0]
 
     # Per class, components are assigned to test/validation/train by SIZE so the
     # test and validation splits each hold ~20% of that class's images, as near
@@ -190,22 +201,26 @@ def create_grouped_splits(rows: list[dict], seed: int = 42, ignore_groups: bool 
     # a handful of large collection sessions.
     split_of_group: dict[str, str] = {}
     for cls, gids in by_class_groups.items():
-        items = sorted((len(groups[gid]), gid) for gid in gids)
-        total = sum(s for s, _ in items)
-        if total == 0:
-            continue
-        t_test = round(total * 0.20)
-        t_val = round(total * 0.20)
-        test_ids = set(_nearest_subset(items, t_test))
-        rest = [it for it in items if it[1] not in test_ids]
-        val_ids = set(_nearest_subset(rest, t_val))
-        for gid in test_ids:
-            split_of_group[gid] = "test"
-        for gid in val_ids:
-            split_of_group[gid] = "validation"
+        by_bg: dict[str, list[tuple[int, str]]] = defaultdict(list)
         for gid in gids:
-            if gid not in split_of_group:
-                split_of_group[gid] = "train"
+            by_bg[_dominant_bg(gid)].append((len(groups[gid]), gid))
+        for _bg, bg_items in by_bg.items():
+            items = sorted(bg_items)
+            total = sum(s for s, _ in items)
+            if total == 0:
+                continue
+            t_test = round(total * 0.20)
+            t_val = round(total * 0.20)
+            test_ids = set(_nearest_subset(items, t_test))
+            rest = [it for it in items if it[1] not in test_ids]
+            val_ids = set(_nearest_subset(rest, t_val))
+            for gid in test_ids:
+                split_of_group[gid] = "test"
+            for gid in val_ids:
+                split_of_group[gid] = "validation"
+            for gid in [g for _, g in items]:
+                if gid not in split_of_group:
+                    split_of_group[gid] = "train"
 
     for gid in singleton_class_groups:
         split_of_group[gid] = "train"  # unlabeled groups stay in training pool
@@ -215,7 +230,10 @@ def create_grouped_splits(rows: list[dict], seed: int = 42, ignore_groups: bool 
         for row in members:
             row["split"] = s
 
-    # Ungrouped images: stratified random fill to top up ratio deficits
+    # Ungrouped images: stratified random fill to top up ratio deficits.
+    # Natural-background (OOD) rows are prioritized into the test split so the
+    # distribution-shift evaluation isn't starved of in-situ examples when they
+    # carry no provenance grouping keys.
     current = Counter(r.get("split") for r in out if r.get("split"))
     total = len(out)
     deficit = {
@@ -224,8 +242,8 @@ def create_grouped_splits(rows: list[dict], seed: int = 42, ignore_groups: bool 
     }
     order = ["test", "validation", "train"]
     rng.shuffle(ungrouped)
-    for row in ungrouped:
-        cls = row.get("class") or "unlabeled"
+    for row in sorted(ungrouped,
+                      key=lambda r: 0 if (r.get("background_type") == "natural") else 1):
         placed = False
         for split in order:
             if deficit[split] > 0:
@@ -249,6 +267,13 @@ def create_grouped_splits(rows: list[dict], seed: int = 42, ignore_groups: bool 
         }
         hash_locked = len(locked)
 
+    # Audit: background (distribution) mix per split — lets downstream eval / UI
+    # see whether the test set actually exercises OOD (natural) background or not.
+    bg_dist: dict[str, dict[str, int]] = defaultdict(Counter)
+    for row in out:
+        bg = row.get("background_type") or "unknown"
+        bg_dist[row["split"]][bg] += 1
+
     return {
         "rows": out,
         "audit": {
@@ -261,6 +286,7 @@ def create_grouped_splits(rows: list[dict], seed: int = 42, ignore_groups: bool 
             ),
             "seed": seed,
             "final_counts": dict(Counter(r["split"] for r in out)),
+            "background_dist": {s: dict(c) for s, c in bg_dist.items()},
         },
     }
 

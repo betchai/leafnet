@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { api, ClassConfig, PredictionHistoryRow } from "../lib/api";
+import { api, ClassConfig, ExplanationCriterion, PredictionHistoryRow } from "../lib/api";
 
 const MAX_SIZE_MB = 20;
 const ACCEPTED = ["image/jpeg", "image/png"];
@@ -27,6 +27,44 @@ interface Explanation {
   predictedClass: string;
   secondClass: string | null;
   saliencyBase64: string;
+  criteria: ExplanationCriterion[];
+}
+
+function CriterionRow({ criterion, top, second }: { criterion: ExplanationCriterion; top: string; second: string | null }) {
+  const isTop = criterion.supports === "top";
+  const isSecond = criterion.supports === "second";
+  const inconclusive = criterion.supports === "inconclusive";
+
+  const badge = inconclusive
+    ? { text: "Inconclusive", cls: "bg-gray-100 text-gray-500 border-gray-300" }
+    : isTop
+      ? { text: `→ ${top}`, cls: "bg-emerald-50 text-emerald-700 border-emerald-300" }
+      : { text: `→ ${second ?? "other candidate"}`, cls: "bg-sky-50 text-sky-700 border-sky-300" };
+
+  const width = isTop ? 100 : isSecond ? 100 : 0;
+
+  return (
+    <li className="border border-gray-200 rounded-md p-2 bg-white">
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-[12px] font-medium text-gray-800">{criterion.label}</p>
+          <p className="text-[11px] text-gray-500">
+            {criterion.value} {criterion.unit}
+          </p>
+        </div>
+        <span className={`shrink-0 text-[11px] font-medium px-2 py-0.5 rounded border ${badge.cls}`}>
+          {badge.text}
+        </span>
+      </div>
+      <div className="mt-1.5 h-1.5 rounded bg-gray-100 overflow-hidden">
+        <div
+          className={isTop ? "h-full bg-emerald-500" : isSecond ? "h-full bg-sky-500" : "h-0"}
+          style={{ width: `${inconclusive ? 0 : width}%` }}
+        />
+      </div>
+      <p className="mt-1 text-[10px] text-gray-400 leading-snug">{criterion.description}</p>
+    </li>
+  );
 }
 
 export default function Analyzer() {
@@ -300,6 +338,18 @@ export default function Analyzer() {
                     : null}
                   . They measure influence, not a diagnosis or a precise region of symptoms.
                 </p>
+                {explanation.criteria.length > 0 && (
+                  <div className="pt-1">
+                    <p className="text-[11px] font-medium text-gray-500 mb-1.5">
+                      Image-evidence criteria — which class each visible signal supports
+                    </p>
+                    <ul className="space-y-1.5">
+                      {explanation.criteria.map((cr) => (
+                        <CriterionRow key={cr.key} criterion={cr} top={explanation.predictedClass} second={explanation.secondClass} />
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
             )}
           </div>

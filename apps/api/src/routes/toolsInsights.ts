@@ -29,7 +29,7 @@ router.get("/", async (req, res) => {
     // ---- Application insights (from Postgres; separate from research data) ----
     const preds = await prisma.prediction.findMany({
       where: { isPlaceholder: false },
-      include: { feedback: true },
+      include: { feedback: true, image: { select: { backgroundType: true } } },
       orderBy: { createdAt: "desc" },
       take: 1000,
     });
@@ -40,6 +40,27 @@ router.get("/", async (req, res) => {
     const withFeedback = preds.filter((p) => p.feedback);
     const disagreements = withFeedback.filter((p) => p.feedback?.verdict === "disagree");
     const lowConfidence = preds.filter((p) => (p.confidence ?? 1) < 0.5);
+
+    // ---- Distribution-shift (covariate/OOD) application insight ----
+    // The in-situ (natural-background) analyzer predictions are the growing OOD
+    // pool. Cross-reference background_type x feedback verdict; verified
+    // corrections on natural-background images are the labeled OOD signal.
+    const byBg: Record<string, { total: number; disagree: number; agree: number }> = {};
+    for (const p of preds) {
+      const bg = p.image?.backgroundType ?? "unknown";
+      byBg[bg] ??= { total: 0, disagree: 0, agree: 0 };
+      byBg[bg].total++;
+      if (p.feedback) {
+        if (p.feedback.verdict === "disagree") byBg[bg].disagree++;
+        else if (p.feedback.verdict === "agree") byBg[bg].agree++;
+      }
+    }
+    const natural = byBg["natural"];
+    const verifiedCorrections = withFeedback.filter(
+      (p) =>
+        p.image?.backgroundType === "natural" &&
+        p.feedback?.reviewStatus === "VERIFIED"
+    ).length;
 
     const application = {
       total_predictions: preds.length,
@@ -53,6 +74,20 @@ router.get("/", async (req, res) => {
         preds.length ? Math.round((100 * withFeedback.length) / preds.length) : null,
       disagreement_rate:
         withFeedback.length ? Math.round((100 * disagreements.length) / withFeedback.length) : null,
+      // Covariate-shift (OOD) pool: live analyzer uploads with natural background
+      distribution_shift: {
+        by_background_type: byBg,
+        natural_ood: {
+          total_predictions: natural?.total ?? 0,
+          disagreement_rate: natural?.total
+            ? Math.round((100 * (natural?.disagree ?? 0)) / natural.total)
+            : null,
+          verified_corrected_labels: verifiedCorrections,
+          note: natural?.total
+            ? `Live in-situ (natural-background) uploads serve as the growing OOD pool. Verified corrections (${verifiedCorrections}) become labeled OOD candidate data.`
+            : "No natural-background (in-situ) analyzer predictions yet — the OOD pool is empty. Add live in-situ uploads and verify corrections to build it.",
+        },
+      },
       label: "Application Data",
     };
 

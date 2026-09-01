@@ -167,3 +167,16 @@ def test_integration_invalid_image_handled(client):
     body, code = out.rsplit("\n", 1)
     assert code == "422"
     assert "unreadable" in body or "corrupt" in body
+
+
+def test_integration_explain_includes_criteria(client, fixture_dir):
+    h = _post(client, "/health")
+    if not h.get("model_loaded"):
+        pytest.skip("no active model loaded on :8000; cannot exercise /explain")
+    data = (fixture_dir / "DEVFIX_spotted.jpg").read_bytes()
+    open("/tmp/expl.jpg", "wb").write(data)
+    exp = _post(client, "/explain", ["file=@/tmp/expl.jpg"])
+    assert "criteria" in exp
+    assert isinstance(exp["criteria"], list)
+    assert "saliency_png_base64" in exp
+    assert "predicted_class" in exp

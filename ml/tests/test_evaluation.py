@@ -112,3 +112,40 @@ def test_evaluation_refuses_on_integrity_failure(tmp_path):
     empty.write_text("")
     ok, report = ev.test_set_integrity(empty)
     assert not ok and "no test rows" in report["problems"][0]
+
+
+def test_distribution_shift_reported_per_domain(fixture_dir, tmp_path):
+    """Distribution-shift eval: manifest rows tagged by background_type produce
+    per-domain metrics and an honest no_domain_test_data flag."""
+    mp, _ = _make_test_manifest(fixture_dir, tmp_path)
+    rows = [json.loads(l) for l in mp.read_text().splitlines()]
+    # tag: 2 white_removed test rows + 1 natural test row
+    for r in rows:
+        r["background_type"] = "natural" if r["image_id"] == "x2" else "white_removed"
+    mp.write_text("\n".join(json.dumps(r) for r in rows))
+
+    model_dir = _trained(tmp_path)
+    result = ev.evaluate_candidate("EXP-T", model_dir, mp, "vTEST",
+                                   out_root=tmp_path / "reports2")
+    ds = result["distribution_shift"]
+    assert ds["no_domain_test_data"] is False
+    assert ds["domains"]["white_removed"]["support"] == 2
+    assert ds["domains"]["natural"]["support"] == 1
+    assert ds["domains"]["natural"]["accuracy"] is not None
+    assert "per_class_f1" in ds["domains"]["natural"]
+    shift = (tmp_path / "reports2" / "trained" / "distribution_shift.json")
+    assert shift.exists()
+
+
+def test_distribution_shift_no_natural_domain():
+    """No natural-background rows -> _per_domain_metrics returns no 'natural'
+    domain, so callers can emit no_domain_test_data=True."""
+    rows = [
+        {"true_label": "healthy", "predicted_label": "healthy", "background_type": "white_removed"},
+        {"true_label": "leaf_spot", "predicted_label": "leaf_spot", "background_type": "white_removed"},
+    ]
+    domains = ev._per_domain_metrics(rows, ["healthy", "leaf_spot", "leaf_blight", "leaf_rust"])
+    assert "natural" not in domains
+    assert "white_removed" in domains
+    assert domains["white_removed"]["support"] == 2
+    assert domains["white_removed"]["accuracy"] == 1.0

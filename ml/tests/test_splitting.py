@@ -105,3 +105,51 @@ def test_small_class_still_gets_all_three_splits():
     for r in res["rows"]:
         by_leaf.setdefault(r["collection_session_id"], set()).add(r["split"])
     assert all(len(s) == 1 for s in by_leaf.values()), "session straddled splits (leakage)"
+
+
+def test_natural_background_rows_reach_test_for_ood_eval():
+    """Distribution-aware split: a class with both white-removed (curated) and
+    natural (in-situ) groups keeps a proportional natural slice in test so OOD /
+    covariate-shift evaluation has support. Groups never straddle splits."""
+    rows = []
+    i = 0
+    for cls in ("healthy", "leaf_rust"):
+        # 80 white-removed images (8 groups of 10) + 40 natural (4 groups of 10)
+        for g in range(8):
+            for _ in range(10):
+                rows.append({"image_id": f"i{i}", "class": cls,
+                             "background_type": "white_removed",
+                             "collection_session_id": f"{cls}_w{g}"})
+                i += 1
+        for g in range(4):
+            for _ in range(10):
+                rows.append({"image_id": f"i{i}", "class": cls,
+                             "background_type": "natural",
+                             "collection_session_id": f"{cls}_n{g}"})
+                i += 1
+    res = create_grouped_splits(rows, seed=1)
+    audit = res["audit"]
+    assert "background_dist" in audit
+    bg = audit["background_dist"]
+    # test split must contain natural (OOD) rows: distribution-aware stratification
+    assert bg["test"].get("natural", 0) > 0, "no natural rows reached test -> OOD eval starved"
+    # natural rows are shared across splits (mild covariate shift: we train on
+    # them too), but they must appear in test so distribution-shift eval runs.
+    assert sum(bg[s].get("natural", 0) for s in bg) == 80  # all 80 natural rows accounted for
+    # leakage invariant preserved: a session's backgrounds never straddle
+    by_session: dict[str, set[str]] = {}
+    for r in res["rows"]:
+        by_session.setdefault(r["collection_session_id"], set()).add(r["split"])
+    assert all(len(s) == 1 for s in by_session.values()), "session straddled splits"
+
+
+def test_audit_reports_background_distribution():
+    rows = [
+        {"image_id": f"i{i}", "class": "healthy",
+         "background_type": "white_removed" if i % 2 else "natural"}
+        for i in range(200)
+    ]
+    audit = create_grouped_splits(rows, seed=5)["audit"]
+    assert "background_dist" in audit
+    total_bg = sum(sum(c.values()) for c in audit["background_dist"].values())
+    assert total_bg == 200

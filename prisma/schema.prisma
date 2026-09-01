@@ -57,6 +57,10 @@ model Image {
   // Capture metadata
   source       String?
   sourceType   String? // field_photo | lab_scan | external_dataset | web_upload
+  // Derived distribution signal (auto-detected at ingest): white_removed
+  // (curated/background-removed) vs natural (in-situ field backdrop). Used for
+  // out-of-distribution evaluation — NOT provenance (see sourceType).
+  backgroundType String?
   capturedAt   DateTime?
   capturedTime String?
   location     String?

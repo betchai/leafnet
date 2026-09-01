@@ -142,8 +142,13 @@ def test_tiny_training_run_on_fixtures(fixture_dir):
     assert ok, report
 
     from src.training.train import run_experiment
+    out_root = Path(tempfile.mkdtemp(prefix="leafnet_train_"))
     meta = run_experiment("EXP-TEST", mp, config, dataset_version="vDEVFIXTURES",
-                          notes="PILOT tiny fixture training - not research results")
+                          notes="PILOT tiny fixture training - not research results",
+                          output_dir=out_root)
     assert meta["best_epoch"] >= 1
     assert meta["status"] == "PILOT_PIPELINE_VALIDATION"
     assert (Path(meta["experiment_id"]) or True)
+    # Sandbox check: a test training run must never touch the real ml/models tree.
+    assert not (Path(__file__).parents[0] / ".." / "models" / "vDEVFIXTURES_EXP-TEST").resolve().exists()
+    assert (out_root / "models" / "vDEVFIXTURES_EXP-TEST" / "model_best.pt").exists()

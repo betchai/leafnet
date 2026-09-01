@@ -72,6 +72,15 @@ interface ExplainResult {
   predictedClass: string;
   secondClass: string | null;
   saliencyBase64: string;
+  criteria: {
+    key: string;
+    label: string;
+    description: string;
+    value: string | number | boolean;
+    unit: string;
+    supports: "top" | "second" | "inconclusive";
+    supports_class?: string | null;
+  }[];
 }
 
 async function requestExplain(imagePath: string): Promise<ExplainResult> {
@@ -105,10 +114,12 @@ async function requestExplain(imagePath: string): Promise<ExplainResult> {
       code: "ML_INVALID_RESPONSE", status: 502,
     });
   }
+  const criteria = Array.isArray(data.criteria) ? data.criteria : [];
   return {
     predictedClass: data.predicted_class,
     secondClass: typeof data.second_class === "string" ? data.second_class : null,
     saliencyBase64: data.saliency_png_base64,
+    criteria,
   };
 }
 

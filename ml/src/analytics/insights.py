@@ -190,6 +190,62 @@ def np_mean(vals):
         return sum(map(float, vals)) / len(vals)
 
 
+# ---------- distribution-shift (covariate/OOD) insights ----------
+
+def distribution_shift_insights(metrics: dict) -> dict:
+    """Summarize per-background_type eval into an honest OOD story.
+
+    Reads the `distribution_shift` block produced by evaluate_candidate. Never
+    fabricates an OOD number: when there is no natural-background (in-situ)
+    test data it reports that explicitly rather than inventing a comparison.
+    """
+    ds = metrics.get("distribution_shift") or {}
+    domains = ds.get("domains") or {}
+    white = domains.get("white_removed") or {}
+    natural = domains.get("natural")
+
+    findings = []
+    if natural is None:
+        findings.append(
+            "No verified in-situ (natural-background) images exist in the test "
+            "set, so out-of-distribution accuracy cannot be measured yet."
+        )
+    else:
+        gap = None
+        if white.get("accuracy") is not None and natural.get("accuracy") is not None:
+            gap = round(white["accuracy"] - natural["accuracy"], 4)
+            if abs(gap) < 0.001:
+                findings.append(
+                    "Observed fact: accuracy is identical on curated (white-removed) "
+                    "and in-situ (natural-background) test images."
+                )
+            elif gap > 0:
+                findings.append(
+                    f"Statistical finding: accuracy drops {gap:.4f} on in-situ natural-"
+                    "background images vs the curated white-removed test set — "
+                    "consistent with mild covariate shift. Verify support before quoting."
+                )
+            else:
+                findings.append(
+                    f"In-situ (natural-background) accuracy is {abs(gap):.4f} HIGHER than "
+                    "curated white-removed — likely small-sample noise; do not over-read."
+                )
+        findings.append(
+            f"natural domain support = {natural.get('support', 0)} test image(s); "
+            "small support makes any OOD metric statistically meaningless."
+        )
+
+    return {
+        "reference_domain": ds.get("reference_domain", "white_removed"),
+        "ood_domain": ds.get("ood_domain", "natural"),
+        "no_domain_test_data": ds.get("no_domain_test_data", natural is None),
+        "domains": domains,
+        "white_removed": white,
+        "natural": natural,
+        "findings": findings,
+    }
+
+
 def improvement_opportunities(perf: dict, conf_err: dict, ds: dict) -> list[dict]:
     """Evidence-ranked recommendations. Each cites its evidence."""
     ops = []
@@ -230,6 +286,7 @@ def build_all(manifest_rows: list[dict], eval_dirs: list[tuple[str, Path]]) -> d
             "performance": perf,
             "confusion": confusion_insights(metrics),
             "confidence_errors": ce,
+            "distribution_shift": distribution_shift_insights(metrics),
             "improvements": improvements,
         }
     return out

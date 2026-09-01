@@ -5,7 +5,7 @@ const prisma = new PrismaClient();
 const router = Router();
 
 export const MANIFEST_FIELDS = [
-  "image_id", "path", "source", "source_type", "license",
+  "image_id", "path", "source", "source_type", "license", "background_type",
   "class", "severity", "plant_id", "leaf_id", "farm_id",
   "collection_session_id", "split", "annotation_status", "review_status",
   "dataset_version", "sha256",
@@ -33,6 +33,7 @@ router.get("/:id/manifest", async (req, res) => {
       path: img.storagePath,
       source: img.source,
       source_type: img.sourceType,
+      background_type: img.backgroundType,
       license: img.license,
       class: img.classifications[0]?.classKey ?? null,
       severity: String(img.classifications[0]?.severity ?? "") || null,

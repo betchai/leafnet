@@ -67,6 +67,36 @@ export function initialStatus(isExactDuplicate: boolean, isDevFixture: boolean) 
   return isExactDuplicate || isDevFixture ? ("NEEDS_REVIEW" as const) : ("UNLABELED" as const);
 }
 
+/**
+ * Ask the ML service (model-free) to classify the image background for OOD
+ * analysis. Never fatal: if the ML service is unavailable the image still
+ * ingests, just without a backgroundType tag.
+ */
+export async function tagBackground(storedPath: string): Promise<string | null> {
+  const base = process.env.ML_SERVICE_URL;
+  if (!base) return null;
+  try {
+    const { readFile } = await import("node:fs/promises");
+    const buffer = await readFile(storedPath);
+    const form = new FormData();
+    form.append(
+      "file",
+      new Blob([new Uint8Array(buffer)]),
+      path.basename(storedPath)
+    );
+    const res = await fetch(`${base}/tag/background`, {
+      method: "POST",
+      body: form,
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { background_type?: string };
+    return data.background_type ?? null;
+  } catch {
+    return null; // tagging is best-effort
+  }
+}
+
 /** Full ingest including persistence. Used by the API route. */
 export async function ingestImage(params: {
   originalName: string;
@@ -85,6 +115,9 @@ export async function ingestImage(params: {
   const existing = await prisma.image.findFirst({ where: { sha256: prep.sha256 } });
   const isExactDuplicate = Boolean(existing);
 
+  // Background classification for covariate-shift eval — best-effort, non-fatal.
+  const backgroundType = await tagBackground(storedPath);
+
   const m = params.metadata;
   const image = await prisma.image.create({
     data: {
@@ -94,6 +127,7 @@ export async function ingestImage(params: {
       sha256: prep.sha256,
       source: m.source || null,
       sourceType: m.sourceType || null,
+      backgroundType,
       location: m.location || null,
       cultivar: m.cultivar || null,
       leafAge: m.leafAge || null,

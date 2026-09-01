@@ -8,6 +8,7 @@ from src.analytics.insights import (
     confidence_error_insights,
     confusion_insights,
     dataset_insights,
+    distribution_shift_insights,
     improvement_opportunities,
     performance_insights,
 )
@@ -118,3 +119,34 @@ def test_zero_data_everywhere():
     assert dataset_insights([])["total_images"] == 0
     ce = confidence_error_insights([])
     assert "Insufficient" in ce["finding"]
+
+
+def test_distribution_shift_reports_ood_gap_honestly_missing():
+    # no natural domain -> must say so, not invent a number
+    metrics = _metrics()
+    metrics["distribution_shift"] = {
+        "domains": {"white_removed": {"support": 180, "accuracy": 0.9}},
+        "no_domain_test_data": True,
+    }
+    d = distribution_shift_insights(metrics)
+    assert d["no_domain_test_data"] is True
+    assert d["natural"] is None
+    assert any("cannot be measured" in f for f in d["findings"])
+
+
+def test_distribution_shift_reports_gap_when_natural_present():
+    metrics = _metrics()
+    metrics["distribution_shift"] = {
+        "domains": {
+            "white_removed": {"support": 180, "accuracy": 0.9,
+                              "macro_f1": 0.85, "per_class_f1": {}},
+            "natural": {"support": 20, "accuracy": 0.7,
+                        "macro_f1": 0.6, "per_class_f1": {}},
+        },
+        "no_domain_test_data": False,
+    }
+    d = distribution_shift_insights(metrics)
+    assert d["no_domain_test_data"] is False
+    assert d["natural"]["accuracy"] == 0.7
+    assert any("drops" in f and "0.2000" in f for f in d["findings"])  # 0.9 - 0.7 = 0.2
+    assert any("support" in f for f in d["findings"])

@@ -44,7 +44,8 @@ def run_experiment(exp_id: str, manifest_path: Path, config: dict,
                    freeze_backbone: bool | None = None,
                    fine_tune_layers: int | None = None,
                    epochs: int | None = None,
-                   on_epoch: Callable[[dict], None] | None = None) -> dict:
+                   on_epoch: Callable[[dict], None] | None = None,
+                   output_dir: Path | None = None) -> dict:
     d = dict(config["experimentDefaults"])
     # Experiment-level overrides (controlled variables)
     if freeze_backbone is not None:
@@ -54,8 +55,11 @@ def run_experiment(exp_id: str, manifest_path: Path, config: dict,
     if epochs is not None:
         d["epochs"] = epochs
 
-    exp_dir = ML_ROOT / "reports" / "experiments" / exp_id
-    model_dir = ML_ROOT / "models" / f"{dataset_version}_{exp_id}"
+    # Output root; tests may sandbox this to a temp dir so a training run never
+    # pollutes the real ml/models or ml/reports/experiments trees.
+    out_root = output_dir if output_dir is not None else ML_ROOT
+    exp_dir = out_root / "reports" / "experiments" / exp_id
+    model_dir = out_root / "models" / f"{dataset_version}_{exp_id}"
     exp_dir.mkdir(parents=True, exist_ok=True)
     model_dir.mkdir(parents=True, exist_ok=True)
 

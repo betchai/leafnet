@@ -123,6 +123,7 @@ def evaluate_candidate(
                 "path": r["path"],
                 "true_label": r["class"],
                 "predicted_label": pred_key,
+                "background_type": r.get("background_type") or "unknown",
                 "correct": pred_key == r["class"],
                 "confidence": prob_d[pred_key],
                 "probabilities": prob_d,
@@ -155,6 +156,29 @@ def evaluate_candidate(
     correct_confs = [p["confidence"] for p in predictions if p["correct"]]
     incorrect_confs = [p["confidence"] for p in predictions if not p["correct"]]
     high_conf_wrong = [p for p in errors if p["confidence"] >= 0.8]
+
+    # ---- distribution-shift (covariate) analysis ----
+    domains = _per_domain_metrics(predictions, keys)
+    natural = domains.get("natural")
+    no_natural_test = natural is None
+    distribution_shift = {
+        "domains": domains,
+        "reference_domain": "white_removed",
+        "ood_domain": "natural",
+        "no_domain_test_data": no_natural_test,
+        "note": (
+            "Natural-background (in-situ) images are OOD relative to the "
+            "white-removed curated test set. A gap between white_removed and "
+            "natural accuracy/macro-F1 indicates mild covariate shift."
+            + (
+                " No natural-background images exist in the test set, so "
+                "out-of-distribution accuracy cannot be measured yet. Add "
+                "verified in-situ (natural background) images to the dataset "
+                "pool to enable this evaluation."
+                if no_natural_test else ""
+            )
+        ),
+    }
 
     result = {
         "status": "OK",
@@ -195,6 +219,7 @@ def evaluate_candidate(
             "difficult_cases_margin_lt_0.10_or_conf_lt_0.5": len(difficult),
             "calibration_note": "Calibration (ECE/reliability diagram) intentionally NOT computed: requires meaningful test n.",
         },
+        "distribution_shift": distribution_shift,
         "_rules_honored": "test set untouched; model weights untouched; single evaluation pass",
     }
 
@@ -202,6 +227,7 @@ def evaluate_candidate(
     out = out_root / model_dir.name
     out.mkdir(parents=True, exist_ok=True)
     (out / "metrics.json").write_text(json.dumps(result, indent=2))
+    (out / "distribution_shift.json").write_text(json.dumps(distribution_shift, indent=2))
 
     with (out / "predictions.csv").open("w", newline="") as f:
         import csv
@@ -230,6 +256,40 @@ def evaluate_candidate(
     _error_galleries(out / "error_galleries", errors)
     (out / "difficult_cases.json").write_text(json.dumps(difficult, indent=2))
     return result
+
+
+def _per_domain_metrics(predictions: list[dict], keys: list[str]) -> dict:
+    """Per-background_type metrics for distribution-shift (OOD/covariate) eval.
+
+    Computes accuracy + macro-F1 + per-class F1 per domain (white_removed,
+    natural, unknown). Returns an empty/None map when a domain has no test rows
+    so callers can honestly report it as "no domain test data" instead of
+    fabricating a number.
+    """
+    from collections import defaultdict
+    by_domain: dict[str, list[dict]] = defaultdict(list)
+    for p in predictions:
+        by_domain[p.get("background_type") or "background_type=missing"].append(p)
+
+    out: dict[str, dict] = {}
+    for domain, rows in sorted(by_domain.items()):
+        yt = [p["true_label"] for p in rows]
+        yp = [p["predicted_label"] for p in rows]
+        support = len(rows)
+        f1_by_class: dict[str, float] = {}
+        if support:
+            _, _, f1, _ = precision_recall_fscore_support(
+                yt, yp, labels=keys, zero_division=0)
+            f1_by_class = {keys[i]: round(float(f1[i]), 4) for i in range(len(keys))}
+        out[domain] = {
+            "support": support,
+            "accuracy": round(float(accuracy_score(yt, yp)), 4) if support else None,
+            "macro_f1": round(float(np.mean(
+                [v for v in f1_by_class.values() if not np.isnan(v)])
+            ), 4) if f1_by_class else None,
+            "per_class_f1": f1_by_class,
+        }
+    return out
 
 
 def _plot_confusion(png: Path, cm: np.ndarray, keys: list[str], title: str, n: int) -> None:
