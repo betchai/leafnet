@@ -266,6 +266,33 @@ def improvement_opportunities(perf: dict, conf_err: dict, ds: dict) -> list[dict
     return ops
 
 
+# ---------- acceptance verdict insights ----------
+
+def acceptance_insights(metrics: dict) -> dict:
+    """Surface the objective pre-registered PASS/FAIL/INCONCLUSIVE verdict.
+
+    The verdict is advisory by design: it says what was objectively met on the
+    held-out test set; promotion/activation remains an expert decision.
+    """
+    acc = metrics.get("acceptance")
+    if not acc:
+        return {
+            "verdict": None,
+            "advisory": True,
+            "note": "No acceptance verdict recorded for this evaluation (missing artifact).",
+        }
+    return {
+        "verdict": acc.get("verdict"),
+        "advisory": acc.get("advisory", True),
+        "sufficient_evidence": acc.get("sufficient_evidence"),
+        "met_all": acc.get("met_all"),
+        "config_version": acc.get("config_version"),
+        "criteria": acc.get("criteria"),
+        "results": acc.get("results"),
+        "note": acc.get("note"),
+    }
+
+
 def build_all(manifest_rows: list[dict], eval_dirs: list[tuple[str, Path]]) -> dict:
     """Assemble the full insights bundle.
     eval_dirs: [(display_name, path-to-metrics.json)]"""
@@ -287,6 +314,7 @@ def build_all(manifest_rows: list[dict], eval_dirs: list[tuple[str, Path]]) -> d
             "confusion": confusion_insights(metrics),
             "confidence_errors": ce,
             "distribution_shift": distribution_shift_insights(metrics),
+            "acceptance": acceptance_insights(metrics),
             "improvements": improvements,
         }
     return out

@@ -6,6 +6,12 @@
 > (V1.1) is the one used for any research claim; the earlier sweep is retained and
 > explained because it is what caught a real engineering bug that would otherwise have
 > invalidated every earlier fine-tuning claim.
+>
+> **Revised Sept 1, 2026** — adds the covariate-shift (out-of-distribution) capability:
+> automatic `background_type` tagging, distribution-aware splits, per-domain
+> (white-background vs in-situ) evaluation metrics, and the `no_domain_test_data` honesty
+> flag. The dataset pool was clean-slated on that date; the V1.1 comparison and sweep
+> below remain the canonical log for the fine-tuning choice.
 
 ---
 
@@ -74,6 +80,29 @@ These are **lower** than the numbers reported earlier in the project (which look
 full-fine-tune bug. The 0.67 measured here is the honest generalization estimate from a
 clean, proven-to-be-leak-free test split.
 
+### The newest addition: checking the model on real field photos (Sept 1, 2026)
+
+Every number above was measured on polished, white-background images (the curated research
+cut). Real-world users photograph leaves in the field with natural backdrops (soil, grass,
+sky) — a *different distribution*. To keep Section 2 honest about that gap, the pipeline was
+extended on Sept 1, 2026:
+
+- **Automatic background tagging.** Each image is auto-classified as `white_removed`
+  (curated), `natural` (in-situ field backdrop), or `unknown` by a lightweight color
+  heuristic (`detect_background`) that never needs the active model — it runs even when
+  the service has no model loaded (`/tag/background`).
+- **Distribution-aware splits.** The leak-proof splitter keeps each split's background mix
+  proportional to the class as a whole, and preserves in-situ `natural` (out-of-domain)
+  photos into the test set instead of letting them drown in the white-removed majority.
+- **Per-domain scores.** Evaluation reports accuracy/macro-F1 separately for `white_removed`
+  vs `natural` test images, and prints an explicit `no_domain_test_data` flag when the test
+  set lacks either domain — never a fabricated number. A growing pool of expert-verified
+  field photos (live analyzer uploads + feedback corrections) is what will eventually make
+  this measurement statistically meaningful.
+- **Richer "why":** on the same day, predict/explain began shipping per-criterion evidence
+  (necrosis fraction, spot density, rust-pustule signal, green-leaf fraction) scored against
+  class-pair criteria profiles, rendered as a voter matrix in the Analyzer.
+
 ---
 
 ## Section 2 — Methodology (defensible research account)
@@ -95,13 +124,24 @@ clean, proven-to-be-leak-free test split.
   locked into the same group — they can never land on opposite sides of a split.
   Images with *no* identifiers are treated as ungrouped and allocated by a stratified,
   seed-fixed fill.
-- **Assignment.** Components are allocated per class by nearest-subset fit so that each
-  split holds approximately the class's share of images: **train ≈ 60%, validation ≈ 20%,
-  test ≈ 20%**. For V1.1 this produced 25 groups (6 of them duplicate-locked):
+- **Assignment.** Components are allocated per class by nearest-subset fit toward the
+  declared 80/10/10 target (`SPLIT_RATIOS` in `ml/src/data/splitting.py`), so each split
+  holds approximately the class's share of images. The archived V1.1 run below predates
+  the 80/10/10 enforcement — it used a 20%/20% group assignment and recorded
+  **train ≈ 60%, validation ≈ 20%, test ≈ 20%**. For V1.1 this produced 25 groups (6 of
+  them duplicate-locked):
   **train 1,208 / validation 407 / test 404**, with per-class test support of
   100 / 101 / 101 / 102.
+  - *Distribution-aware stratification (Sept 1, 2026).* Since the covariate-shift work,
+    selection is additionally stratified, inside each class, by the group's *dominant*
+    `background_type` (`white_removed` | `natural` | `unknown`, missing values default to
+    `unknown`), so test and validation inherit the same background mix as the class as a
+    whole. Ungrouped `natural` (in-situ) rows are prioritized into test so OOD evaluation
+    is not starved of field-photo support.
 - **Integrity audit.** Every split records the number of groups and duplicate-locked
-  groups and reassigns training **and** test images to groups for a post-hoc audit. The
+  groups and reassigns training **and** test images to groups for a post-hoc audit, and
+  (since Sept 1, 2026) records `background_dist` — exact per-`background_type` counts per
+  split — so the test set's distribution composition is verifiable. The
   evaluation step re-checks the manifest for hash-level cross-split duplicates and refuses
   to evaluate (`evaluation refused: integrity failure`) if any are found. One earlier
   pipeline run was rejected by precisely this gate, which is how the two-session duplicate
@@ -137,6 +177,16 @@ clean, proven-to-be-leak-free test split.
   class, so the statistics warning in the pipeline does not apply.
 - **Integrity gate.** Evaluation runs only if the hash-level integrity re-check passes;
   `test_set_integrity` reported `ok=True`, 0 problems across all splits.
+- **Distribution-shift (covariate) evaluation (Sept 1, 2026).** Every evaluation writes a
+  `distribution_shift.json` artifact (reference domain `white_removed`, OOD domain
+  `natural`) with per-domain accuracy, macro-F1, and per-class F1, computed
+  per-`background_type` over the test predictions. When a domain has no test rows it sets
+  `no_domain_test_data: true` and a plain-language note explaining that OOD accuracy
+  cannot be measured yet — rather than emitting a placeholder number. The insights layer
+  mirrors this at runtime: served predictions are grouped by `backgroundType` × feedback
+  verdict, and the API exposes the growing in-situ OOD pool plus the count of
+  verified-corrected labels (expert disagrees with the model on a natural-background
+  photo), which are the labeled OOD candidates for future retraining.
 
 ### 2.5 Results (corrected, V1.1, test n = 404)
 
@@ -171,16 +221,29 @@ interpretable as block-count evidence; their value is diagnostic:
   ~100 images per class.
 - Both candidates were early-stopped on validation; the test set was only used once, at
   evaluation time.
-- No separate external field set was evaluated; generalization beyond the lab capture
-  protocol is not yet measured.
+- **Covariate shift is structurally measured, but not yet statistically.**
+  Background tagging, distribution-aware splits, and per-domain metrics (Sept 1, 2026)
+  quantify a `white_removed`-vs-`natural` accuracy gap whenever the test set contains
+  natural photos. For the corrected V1.1 comparison no `natural`-background test images
+  existed (`no_domain_test_data`), so field generalization remains an unmeasured quantity
+  there; it becomes measurable as expert-verified in-situ photos accumulate in the pool.
+  Ingest tags are best-effort: if the ML service is unreachable, images still ingest with
+  a missing background tag, and the missing-domain condition is reported honestly rather
+  than guessed.
 
 ### 2.8 Artifacts
 
-- Split audit + manifests: `ml/data/prepared/cmtfv7x5y0000yczbdpdqtj0c_seed42{,_audit}.jsonl`
+- Split audit + manifests: written to `ml/data/prepared/<run>_seed42{,_audit}.jsonl` at
+  split time, `background_dist` (per-`background_type` counts per split) included since
+  Sept 1, 2026. The original V1.1 manifests were cleared by the Sept 1 clean slate.
 - Experiment logs: `ml/reports/experiments/EXP-V1.1-{B,FT}/`
-- Evaluation bundles: `ml/reports/evaluation/V1.1_EXP-V1.1-{B,FT}/`
-- Model cards: `ml/models/V1.1_EXP-V1.1-{B,FT}/MODEL_CARD.md`
+- Evaluation bundles: `ml/reports/evaluation/V1.1_EXP-V1.1-{B,FT}/` — `metrics.json`
+  (+ `distribution_shift.json` since Sept 1, 2026), confusion matrices, per-error galleries
+- Model cards: `ml/models/V1.1_EXP-V1.1-{B,FT}/MODEL_CARD.md` (reproduced on retrain;
+  model artifacts are gitignored and were reset by the Sept 1 clean slate)
 - Sweep scripts + evidence: `ml/scripts/run_unfreeze_sweep.py`, `ml/scripts/eval_sweep_models.py`,
   `ml/reports/sweeps/unfreeze_blocks_sweep.json`, `ml/reports/evaluation/SWEEP_SWP_unfreeze{3,18}/`
-- Registry: both V1.1 candidates registered as `experimental` (draft); no lifecycle change
-  to the currently active `V1.0_r3_EXP-V1.0-FT` model.
+- Registry: both V1.1 candidates were registered `experimental` (draft). The Sept 1, 2026
+  clean slate (`scripts/clean_slate.sh`) reset the database registry and the
+  active-model pointer, so a model must be retrained and re-registered before live
+  predictions resume.

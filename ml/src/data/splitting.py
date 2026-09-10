@@ -194,11 +194,13 @@ def create_grouped_splits(rows: list[dict], seed: int = 42, ignore_groups: bool 
             (r.get("background_type") or "unknown") for r in groups[gid]
         ).most_common(1)[0][0]
 
-    # Per class, components are assigned to test/validation/train by SIZE so the
-    # test and validation splits each hold ~20% of that class's images, as near
-    # to the target as component granularity allows (nearest-subset fit). This
-    # keeps per-class test support balanced even when many training photos share
-    # a handful of large collection sessions.
+    # Per class, components are assigned to test/validation/train by SIZE toward
+    # SPLIT_RATIOS (80/10/10, declared in pipeline.json splitRatios) — test and
+    # validation each target 10% of that class's images, as near to the target
+    # as component granularity allows (nearest-subset fit). This keeps per-class
+    # test support balanced even when many training photos share a handful of
+    # large collection sessions, and gives the research target of ~200 test
+    # images at a 2000-image dataset (10% of 2000).
     split_of_group: dict[str, str] = {}
     for cls, gids in by_class_groups.items():
         by_bg: dict[str, list[tuple[int, str]]] = defaultdict(list)
@@ -209,8 +211,8 @@ def create_grouped_splits(rows: list[dict], seed: int = 42, ignore_groups: bool 
             total = sum(s for s, _ in items)
             if total == 0:
                 continue
-            t_test = round(total * 0.20)
-            t_val = round(total * 0.20)
+            t_test = round(total * SPLIT_RATIOS["test"])
+            t_val = round(total * SPLIT_RATIOS["validation"])
             test_ids = set(_nearest_subset(items, t_test))
             rest = [it for it in items if it[1] not in test_ids]
             val_ids = set(_nearest_subset(rest, t_val))

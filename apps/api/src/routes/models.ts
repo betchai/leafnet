@@ -61,6 +61,7 @@ router.get("/:id/detail", async (req, res) => {
         notes: m.notes,
         accuracy: m.accuracy,
         f1Score: m.f1Score,
+        acceptanceVerdict: m.acceptanceVerdict ?? null,
       },
       detail,
       dataset: research.dataset ?? null,

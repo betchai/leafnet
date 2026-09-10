@@ -8,6 +8,12 @@ Rules enforced here:
 
 Metrics produced are TEST metrics; at small n they are reported but must be
 interpreted as meaningless (stated explicitly in reports).
+
+Objective acceptance verdict: every evaluated candidate is compared against the
+PRE-REGISTERED thresholds in src/config/acceptance.json (fixed before any run,
+never tuned after results). The verdict is PASS / FAIL / INCONCLUSIVE and is
+ADVISORY — it states objectively what was met, but a human expert still decides
+whether to promote/activate/use the model.
 """
 
 from __future__ import annotations
@@ -39,6 +45,64 @@ def sha256_file(path: Path) -> str:
         for chunk in iter(lambda: f.read(1 << 20), b""):
             h.update(chunk)
         return h.hexdigest()
+
+
+def load_acceptance() -> dict:
+    """Read the pre-registered acceptance thresholds."""
+    return json.loads((Path(__file__).parents[2] / "src/config/acceptance.json").read_text())
+
+
+def evaluate_acceptance(metrics: dict, test_size: int) -> dict:
+    """Objective, pre-registered PASS/FAIL/INCONCLUSIVE verdict (advisory).
+
+    Thresholds live in src/config/acceptance.json and are fixed BEFORE a run;
+    they are never tuned after seeing results. The verdict does NOT decide
+    whether a model is used — promotion/activation stays an expert decision. It
+    only states objectively, per criterion, what was met on the held-out test.
+    """
+    cfg = load_acceptance()
+    criteria = cfg["criteria"]
+    per_class_f1 = [m["f1"] for m in metrics["per_class"].values()]
+
+    results = [
+        {"criterion": "test_size", "threshold": criteria["test_size_min"],
+         "value": test_size, "met": test_size >= criteria["test_size_min"]},
+        {"criterion": "accuracy", "threshold": criteria["accuracy_min"],
+         "value": metrics["accuracy"], "met": metrics["accuracy"] >= criteria["accuracy_min"]},
+        {"criterion": "macro_f1", "threshold": criteria["macro_f1_min"],
+         "value": metrics["macro"]["f1"], "met": metrics["macro"]["f1"] >= criteria["macro_f1_min"]},
+        {"criterion": "worst_class_f1", "threshold": criteria["per_class_f1_min"],
+         "value": min(per_class_f1), "met": min(per_class_f1) >= criteria["per_class_f1_min"]},
+    ]
+
+    sufficient_evidence = test_size >= criteria["test_size_min"]
+    if not sufficient_evidence:
+        verdict = "INCONCLUSIVE"
+        met_all = None
+        note = (
+            f"Not enough held-out test images (n={test_size}, need "
+            f">={criteria['test_size_min']}) to render a verdict. Add verified, "
+            "APPROVED test data before relying on these numbers."
+        )
+    else:
+        met_all = all(r["met"] for r in results)
+        verdict = "PASS" if met_all else "FAIL"
+        note = (
+            "Objective criteria met on the held-out test set."
+            if verdict == "PASS"
+            else "One or more objective criteria not met on the held-out test set."
+        ) + " This verdict is advisory: an expert still decides whether to promote/activate/use the model."
+
+    return {
+        "verdict": verdict,
+        "advisory": True,
+        "sufficient_evidence": sufficient_evidence,
+        "met_all": met_all,
+        "config_version": cfg["version"],
+        "criteria": {k: v for k, v in criteria.items()},
+        "results": results,
+        "note": note,
+    }
 
 
 def test_set_integrity(manifest_file: Path) -> tuple[bool, dict]:
@@ -223,11 +287,15 @@ def evaluate_candidate(
         "_rules_honored": "test set untouched; model weights untouched; single evaluation pass",
     }
 
+    acceptance = evaluate_acceptance(result["metrics"], len(test_rows))
+    result["acceptance"] = acceptance
+
     # ---- artifacts ----
     out = out_root / model_dir.name
     out.mkdir(parents=True, exist_ok=True)
     (out / "metrics.json").write_text(json.dumps(result, indent=2))
     (out / "distribution_shift.json").write_text(json.dumps(distribution_shift, indent=2))
+    (out / "acceptance.json").write_text(json.dumps(acceptance, indent=2))
 
     with (out / "predictions.csv").open("w", newline="") as f:
         import csv

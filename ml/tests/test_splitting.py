@@ -36,6 +36,26 @@ def test_partition_approximates_80_10_10():
     assert abs(counts["test"] - 200) <= 8
 
 
+def test_grouped_split_enforces_80_10_10():
+    """Grouped (leakage-safe) splits must target 80/10/10 per class — the
+    declared ratio in pipeline.json splitRatios. 2000 images, 10 equal sessions
+    per class (50 each) resolve to exactly 1600/200/200."""
+    rows = [
+        {"image_id": f"i{i}", "class": cls, "collection_session_id": f"{cls}_s{i // 50}"}
+        for cls in ("healthy", "leaf_rust", "leaf_spot", "leaf_blight")
+        for i in range(500)
+    ]
+    audit = create_grouped_splits(rows, seed=42)["audit"]
+    counts = audit["final_counts"]
+    assert counts == {"train": 1600, "validation": 200, "test": 200}, counts
+    # never straddle: a session's images all share one split
+    out = create_grouped_splits(rows, seed=42)["rows"]
+    by_session: dict[str, set[str]] = {}
+    for r in out:
+        by_session.setdefault(r["collection_session_id"], set()).add(r["split"])
+    assert all(len(s) == 1 for s in by_session.values()), "session straddled splits (leakage)"
+
+
 def test_split_is_reproducible_with_seed():
     rows = [{"image_id": str(i), "class": "healthy"} for i in range(50)]
     a = create_grouped_splits(rows, seed=99)["rows"]
@@ -90,17 +110,20 @@ def test_ignore_groups_keeps_keys_but_splits_image_level():
 
 
 def test_small_class_still_gets_all_three_splits():
-    """Regression: 4 collection sessions/class used to yield round(4*0.1)=0
-    validation groups -> empty validation -> whole dataset forced to PILOT."""
+    """Regression: coarse collection sessions used to silently produce empty
+    validation/test and force the whole run into PILOT. With enough sessions
+    for the 80/10/10 target (10 sessions/class -> 10% of 400 = 40 per slice)
+    a grouped split must still yield all three non-empty splits, leak-free."""
     rows = [
-        {"image_id": f"i{i}", "class": cls, "collection_session_id": f"{cls}_{i // 100}"}
+        {"image_id": f"i{i}", "class": cls, "collection_session_id": f"{cls}_{i // 40}"}
         for cls in ("healthy", "leaf_rust", "leaf_spot", "leaf_blight")
-        for i in range(400)  # 4 sessions x 100 images per class
+        for i in range(400)  # 10 sessions x 40 images per class
     ]
     res = create_grouped_splits(rows, seed=42)
     assert res["audit"]["strategy"] == "group_aware_union_find"
     counts = res["audit"]["final_counts"]
     assert counts["train"] > 0 and counts["validation"] > 0 and counts["test"] > 0
+    assert counts["test"] == 160 and counts["validation"] == 160  # 10% per class
     by_leaf: dict[str, set[str]] = {}
     for r in res["rows"]:
         by_leaf.setdefault(r["collection_session_id"], set()).add(r["split"])
@@ -114,15 +137,15 @@ def test_natural_background_rows_reach_test_for_ood_eval():
     rows = []
     i = 0
     for cls in ("healthy", "leaf_rust"):
-        # 80 white-removed images (8 groups of 10) + 40 natural (4 groups of 10)
+        # 80 white-removed images (8 groups of 10) + 40 natural (5 groups of 8)
         for g in range(8):
             for _ in range(10):
                 rows.append({"image_id": f"i{i}", "class": cls,
                              "background_type": "white_removed",
                              "collection_session_id": f"{cls}_w{g}"})
                 i += 1
-        for g in range(4):
-            for _ in range(10):
+        for g in range(5):
+            for _ in range(8):
                 rows.append({"image_id": f"i{i}", "class": cls,
                              "background_type": "natural",
                              "collection_session_id": f"{cls}_n{g}"})

@@ -29,12 +29,14 @@ router.post("/register", async (req, res) => {
       ...(typeof req.body.accuracy === "number" ? { accuracy: req.body.accuracy } : {}),
       ...(typeof req.body.f1Score === "number" ? { f1Score: req.body.f1Score } : {}),
       ...(req.body.confusionMatrix ? { confusionMatrix: req.body.confusionMatrix } : {}),
+      acceptanceVerdict: typeof req.body.acceptanceVerdict === "string" ? req.body.acceptanceVerdict : null,
       notes: notes ?? "registered by pipeline runner",
     },
     update: {
       accuracy: typeof req.body.accuracy === "number" ? req.body.accuracy : undefined,
       f1Score: typeof req.body.f1Score === "number" ? req.body.f1Score : undefined,
       confusionMatrix: req.body.confusionMatrix ?? undefined,
+      acceptanceVerdict: typeof req.body.acceptanceVerdict === "string" ? req.body.acceptanceVerdict : undefined,
     },
   });
   res.status(201).json({ registered: mv.version });

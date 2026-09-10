@@ -1,0 +1,16 @@
+{
+  "_comment": "Pre-registered objective acceptance thresholds for candidate models. These are fixed BEFORE a training run and before any evaluation results are seen; they are never tuned after results exist. The verdict computed from them is ADVISORY: it states objectively whether a candidate meets the research bar, but a human expert still decides whether to promote/activate/use the model (the lifecycle experimental -> ... -> approved -> active stays manual).",
+  "version": "1",
+  "criteria": {
+    "test_size_min": 30,
+    "accuracy_min": 0.6,
+    "macro_f1_min": 0.6,
+    "per_class_f1_min": 0.4
+  },
+  "rationale": {
+    "test_size_min": "Evidence floor: below this held-out test size the verdict is INCONCLUSIVE (no statistically meaningful support). 10% of a full 2000-image dataset is 200, so 30 is a conservative floor for smaller pilot runs.",
+    "accuracy_min": "Overall accuracy must clear a comfortable margin above chance (0.25 for 4 classes).",
+    "macro_f1_min": "Macro-average F1 guards against accuracy being inflated by guessing the majority class.",
+    "per_class_f1_min": "No class may be silently neglected: worst-class F1 must stay reasonable."
+  }
+}

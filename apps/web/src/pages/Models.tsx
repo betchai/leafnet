@@ -12,6 +12,7 @@ interface ModelRow {
   notes?: string | null;
   isActive: boolean;
   lifecycleStatus: string;
+  acceptanceVerdict?: string | null;
 }
 
 interface BalanceSummary {
@@ -60,6 +61,17 @@ interface Improvement {
   evidence: string;
 }
 
+interface AcceptanceDetail {
+  verdict: string | null;
+  advisory: boolean;
+  sufficient_evidence?: boolean | null;
+  met_all?: boolean | null;
+  config_version?: string | null;
+  criteria?: Record<string, number>;
+  results?: Array<{ criterion: string; threshold: number; value: number; met: boolean }>;
+  note?: string | null;
+}
+
 interface ModelDetail {
   model: {
     id: string;
@@ -70,12 +82,16 @@ interface ModelDetail {
     datasetVersion: string | null;
     trainedAt?: string | null;
     notes?: string | null;
+    accuracy?: number | null;
+    f1Score?: number | null;
+    acceptanceVerdict?: string | null;
   };
   detail: {
     performance: PerformanceDetail;
     confusion: ConfusionDetail;
     confidence_errors: ConfErrDetail;
     improvements: Improvement[];
+    acceptance?: AcceptanceDetail;
   } | null;
   dataset: { splits: Record<string, Record<string, number>>; total_images: number } | null;
   missing?: string | null;
@@ -245,6 +261,7 @@ export default function Models() {
                 <th className="p-3">Trained</th>
                 <th className="p-3">Test acc</th>
                 <th className="p-3">Macro F1</th>
+                <th className="p-3">Verdict</th>
                 <th className="p-3">Lifecycle</th>
                 <th className="p-3">Actions</th>
               </tr>
@@ -276,6 +293,9 @@ export default function Models() {
                     </td>
                     <td className={`p-3 ${metricsUnreliable ? "text-slate-400" : ""}`}>
                       {m.f1Score != null ? m.f1Score : "—"}
+                    </td>
+                    <td className="p-3">
+                      <VerdictBadge verdict={m.acceptanceVerdict ?? null} />
                     </td>
                     <td className="p-3">
                       <span className={`px-2 py-0.5 rounded-full text-xs ${m.isActive ? "bg-green-100 text-green-700" : deactivated ? "bg-gray-200 text-gray-500" : m.lifecycleStatus === "approved" ? "bg-emerald-50 text-emerald-700" : m.lifecycleStatus === "candidate" ? "bg-sky-100 text-sky-700" : m.lifecycleStatus === "retired" ? "bg-gray-200 text-gray-500" : "bg-slate-100 text-slate-500"}`}>
@@ -357,6 +377,7 @@ function DetailModal({ detail, onClose, metricsUnreliable }: {
             {d.performance.statistical_warning && (
               <p className="text-xs rounded bg-amber-50 border border-amber-200 p-2 text-amber-800">{d.performance.statistical_warning}</p>
             )}
+            <AcceptanceBlock acc={d.acceptance} />
             <PerClassTable pc={d.performance.per_class} />
             <ConfusionBlock c={d.confusion} />
             <ConfidenceBlock ce={d.confidence_errors} />
@@ -484,6 +505,66 @@ function ImprovementsBlock({ imps }: { imps: Improvement[] }) {
           ))}
         </ul>
       )}
+    </div>
+  );
+}
+
+const VERDICT_STYLE: Record<string, string> = {
+  PASS: "bg-green-100 text-green-700",
+  FAIL: "bg-red-100 text-red-700",
+  INCONCLUSIVE: "bg-amber-100 text-amber-800",
+};
+
+function VerdictBadge({ verdict }: { verdict: string | null }) {
+  if (!verdict) return <span className="text-xs text-gray-400">—</span>;
+  return (
+    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${VERDICT_STYLE[verdict] ?? "bg-slate-100 text-slate-500"}`}>
+      {verdict}
+    </span>
+  );
+}
+
+function AcceptanceBlock({ acc }: { acc?: AcceptanceDetail }) {
+  if (!acc || !acc.verdict) return null;
+  const fail = acc.verdict === "FAIL";
+  const border = fail ? "border-red-200 bg-red-50" : acc.verdict === "PASS" ? "border-green-200 bg-green-50" : "border-amber-200 bg-amber-50";
+  return (
+    <div className={`rounded-lg border p-3 space-y-2 ${border}`}>
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="text-xs uppercase tracking-wide text-gray-500">Objective acceptance</p>
+        <VerdictBadge verdict={acc.verdict} />
+        {acc.sufficient_evidence === false && (
+          <span className="text-[11px] text-amber-700">insufficient test evidence</span>
+        )}
+      </div>
+      {acc.results && acc.results.length > 0 && (
+        <table className="w-full text-xs border border-gray-200">
+          <thead className="bg-white/60 text-gray-500">
+            <tr className="text-left">
+              <th className="p-1.5">Criterion</th>
+              <th className="p-1.5">Threshold</th>
+              <th className="p-1.5">Observed</th>
+              <th className="p-1.5">Met</th>
+            </tr>
+          </thead>
+          <tbody>
+            {acc.results.map((r) => (
+              <tr key={r.criterion} className="border-t border-gray-200">
+                <td className="p-1.5 font-mono">{r.criterion}</td>
+                <td className="p-1.5">{r.threshold}</td>
+                <td className="p-1.5">{typeof r.value === "number" ? r.value.toFixed(4) : r.value}</td>
+                <td className="p-1.5">{r.met ? "✓" : "✗"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      {acc.note && <p className="text-xs text-gray-600">{acc.note}</p>}
+      <p className="text-xs text-gray-500">
+        Thresholds are pre-registered in <code className="font-mono">ml/src/config/acceptance.json</code> and never
+        tuned after results. This verdict is <strong>advisory only</strong> — the decision to promote/activate this
+        model remains an explicit expert action. A non-PASS verdict does not block promotion.
+      </p>
     </div>
   );
 }

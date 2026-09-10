@@ -222,6 +222,9 @@ model ModelVersion {
   recall          Float?
   f1Score         Float?
   confusionMatrix Json?
+  // Objective pre-registered acceptance verdict ("PASS" | "FAIL" | "INCONCLUSIVE"
+  // | null). Advisory only — promotion/activation remains an expert decision.
+  acceptanceVerdict String?
 
   predictions Prediction[]
 

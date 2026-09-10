@@ -188,6 +188,7 @@ def _run_job(job: dict, params: dict):
                 "status": "done",
                 "accuracy": result["metrics"]["accuracy"],
                 "test_size": result["test_size"],
+                "acceptance": (result.get("acceptance") or {}).get("verdict"),
             }
             _write_model_card(model_dir, params["versionLabel"], exp_id, meta, result)
             job["steps"].setdefault(f"model_card_{model_dir.name}", {"status": "done"})
@@ -204,6 +205,7 @@ def _run_job(job: dict, params: dict):
                     "notes": f"{meta.get('transfer_learning_strategy','')} — {meta.get('notes','')}"[:500],
                     "accuracy": result["metrics"]["accuracy"],
                     "f1Score": result["metrics"]["macro"]["f1"],
+                    "acceptanceVerdict": (result.get("acceptance") or {}).get("verdict"),
                     "confusionMatrix": result["confusion_matrix"],
                 }).encode(),
                 headers={"Content-Type": "application/json"}, method="POST")
@@ -222,7 +224,8 @@ def _run_job(job: dict, params: dict):
             for name, r in results_all.items():
                 m = r["metrics"]
                 lines.append(f"- `{name}`: accuracy **{m['accuracy']}**, macro F1 "
-                             f"**{m['macro']['f1']}**, test n={r['test_size']}")
+                             f"**{m['macro']['f1']}**, test n={r['test_size']}, "
+                             f"acceptance **{(r.get('acceptance') or {}).get('verdict')}**")
             with open(ML_ROOT.parent / "docs" / "PHASE_6_STATUS.md", "a") as f:
                 f.write("\n".join(lines) + "\n")
             _log(job, "PHASE_6_STATUS.md updated")
@@ -308,6 +311,24 @@ def _write_model_card(model_dir: Path, version: str, exp_id: str, meta: dict, ev
         f"| Aggregate | Value |\n|---|---|\n"
         f"| Accuracy | {ev['metrics']['accuracy']} |\n"
         f"| Macro F1 | {ev['metrics']['macro']['f1']} |\n\n"
+    )
+    acc = ev.get("acceptance") or {}
+    if acc.get("verdict"):
+        acc_rows = "\n".join(
+            f"| {r['criterion']} | {r['threshold']} | {r['value']} | {r['met']} |"
+            for r in (acc.get("results") or [])
+        )
+        card += (
+            f"## Acceptance verdict: **{acc['verdict']}** (advisory)\n\n"
+            f"Evaluated against the PRE-REGISTERED thresholds in "
+            f"`ml/src/config/acceptance.json` (v{acc.get('config_version')}) — fixed "
+            f"before the run and never tuned after results. The verdict only states "
+            f"what was objectively met on the held-out test set; an expert still "
+            f"decides whether to promote/activate this model.\n\n"
+            f"| Criterion | Threshold | Observed | Met |\n|---|---|---|---|\n{acc_rows}\n\n"
+            f"> {acc.get('note', '')}\n\n"
+        )
+    card += (
         f"## Confusion matrix\nColumns = predicted, rows = actual:\n\n```\n{cm}\n```\n\n"
         f"## Known limitations\n"
         f"- Dataset scope limited to collected farms/sessions/conditions\n"

@@ -280,7 +280,7 @@ router.post("/review/batch-confirm", async (req, res) => {
  * preliminary label, so the UI can show a breakdown before bulk-confirming.
  */
 router.get("/review/batch-confirm-preview", async (_req, res) => {
-  const eligibleStatuses = ["ANNOTATED", "EXPERT_REVIEWED", "SECOND_OPINION"];
+  const eligibleStatuses: AnnotationStatus[] = ["ANNOTATED", "EXPERT_REVIEWED", "SECOND_OPINION"];
   const images = await prisma.image.findMany({
     where: { annotationStatus: { in: eligibleStatuses } },
     include: {

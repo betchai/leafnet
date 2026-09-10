@@ -91,6 +91,13 @@ def test_evaluation_produces_consistent_records_and_metrics(fixture_dir, tmp_pat
     true_labels = [p["true_label"] for p in preds]
     assert all(t in load_class_mapping() for t in true_labels)
 
+    # objective acceptance verdict is recorded and persisted: test n=3 < 30 ->
+    # INCONCLUSIVE, and the artifact lands next to metrics.json
+    assert result["acceptance"]["verdict"] == "INCONCLUSIVE"
+    assert result["acceptance"]["sufficient_evidence"] is False
+    assert result["acceptance"]["advisory"] is True
+    assert (tmp_path / "reports" / "trained" / "acceptance.json").exists()
+
 
 def _trained(tmp_path: Path) -> Path:
     d = tmp_path / "trained"
