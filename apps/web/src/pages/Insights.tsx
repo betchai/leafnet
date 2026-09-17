@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import EmptyState from "../components/EmptyState";
+import { apiFetch } from "../lib/api";
 
 /**
  * INSIGHTS (Phase 9) — research insights dashboard.
@@ -40,7 +41,7 @@ export default function Insights() {
   const [modelKey, setModelKey] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/insights")
+    apiFetch("/insights")
       .then((r) => r.json())
       .then((d) => {
         setData(d);

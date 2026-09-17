@@ -3,6 +3,8 @@ import { PrismaClient } from "@prisma/client";
 import path from "node:path";
 import { readFile } from "node:fs/promises";
 
+import { authorize } from "../auth/middleware.js";
+
 // BETA-MODEL: HTTP boundary to the Python ML service (Phase 7 contract).
 const prisma = new PrismaClient();
 const router = Router();
@@ -141,7 +143,7 @@ function rateLimited(ip: string): boolean {
  * Orchestrates: fetch image → forward to ML service (timeout + validation)
  * → persist prediction with full probability distribution.
  */
-router.post("/", async (req, res) => {
+router.post("/", authorize("analyze"), async (req, res) => {
   const ip = req.ip ?? "unknown";
   if (rateLimited(ip)) {
     return res.status(429).json({ error: "Too many requests. Please wait a moment." });
@@ -193,7 +195,7 @@ router.post("/", async (req, res) => {
 });
 
 // GET /api/predictions?limit=20 — prediction history (newest first)
-router.get("/", async (req, res) => {
+router.get("/", authorize("analyze"), async (req, res) => {
   const limit = Math.min(Number(req.query.limit) || 20, 100);
   const predictions = await prisma.prediction.findMany({
     where: { isPlaceholder: false },
@@ -219,7 +221,7 @@ router.get("/", async (req, res) => {
 });
 
 // POST /api/predictions/:id/explain — visual explanation (saliency heatmap)
-router.post("/:id/explain", async (req, res) => {
+router.post("/:id/explain", authorize("analyze"), async (req, res) => {
   const prediction = await prisma.prediction.findUnique({
     where: { id: req.params.id },
     include: { image: true },
@@ -236,7 +238,7 @@ router.post("/:id/explain", async (req, res) => {
 });
 
 // GET /api/predictions/:id
-router.get("/:id", async (req, res) => {
+router.get("/:id", authorize("analyze"), async (req, res) => {
   const prediction = await prisma.prediction.findUnique({
     where: { id: req.params.id },
     include: { feedback: true, modelVersion: true },
@@ -250,7 +252,7 @@ router.get("/:id", async (req, res) => {
  * Body: { verdict: "agree" | "disagree" | "unsure", correctedClass?, comment? }
  * Stored for future expert review (Phase 9.1) — never becomes ground truth automatically.
  */
-router.post("/:id/feedback", async (req, res) => {
+router.post("/:id/feedback", authorize("analyze"), async (req, res) => {
   const { verdict, correctedClass, comment } = req.body ?? {};
   if (!["agree", "disagree", "unsure"].includes(verdict)) {
     return res.status(400).json({ error: 'verdict must be "agree", "disagree" or "unsure"' });

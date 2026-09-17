@@ -44,21 +44,24 @@
       "description": "Rust disease of mulberry caused by rust fungi (principally Cerotelium fici; also Peridiopsora/Aecidium mori), visually characterized by raised powdery pustules.",
       "enabled": true,
       "visual_indicators": [
-        "Small pinhead-sized circular brownish-to-black spots that develop into raised pustules",
-        "Light-brown/yellowish-orange powdery masses (spores), often with a yellowish halo (~0.5-1 mm pustules)",
-        "Pustules frequently on the abaxial (lower) leaf surface; chlorotic patches above",
-        "Advanced stages: leaves yellow and wither prematurely"
+        "Early: small yellowish chlorotic spots on the UPPER leaf surface, before pustules erupt on the other side",
+        "Erumpent (cuticle-piercing) orange/reddish-brown/yellow-orange POWDERY pustules of spores; tiny (sub-millimetre to ~1 mm), often with a yellowish halo, darkening as they mature",
+        "Pustules concentrated on the ABAXIAL (lower) surface, opposite the upper chlorotic spots; light-brown pustule form also documented",
+        "Advanced stages: pustules coalesce into a fine yellow-orange spore 'powder' over the leaf; leaves yellow and prematurely wither/fall"
       ],
-      "annotation_guidance": "The key discriminator vs leaf_spot is the POWDERY/RAISED PUSTULE appearance (spore mass). Flat necrotic spots are leaf_spot, not rust. If only early pinhead spots are present without pustules, flag as uncertain.",
+      "annotation_guidance": "The key discriminator vs leaf_spot is the POWDERY/RAISED PUSTULE appearance (erupted spore mass). Flat necrotic spots are leaf_spot, not rust. Lower-surface check matters: if only upper chlorotic spots are visible, look for powdery pustules on the underside before labelling. If only early upper spots are present without pustules, flag as uncertain.",
       "confounding_conditions": [
         "Early leaf_spot lesions look like the initial pinhead spots of rust",
         "Necrotic spots after pustules rupture can resemble leaf_spot",
-        "Insect galls or scale insects can mimic pustules"
+        "Insect galls or scale insects can mimic pustules",
+        "Coalesced rust pustules form necrotic patches that resemble spot/blight at a glance"
       ],
       "evidence_sources": [
         "Mordue (1991), CAB Descriptions of Fungi and Bacteria: Aecidium mori, 'Rust of mulberry'",
-        "Baiyewu et al. (2005), Pakistan J. Plant Pathology: occurrence of leaf rust of mulberry by Cerotelium fici - pinhead brown/black spots, then yellowing and withering",
-        "Goncalves et al. (2022), Plant Disease: first report of C. fici on M. nigra in Brazil - light brown pustules with yellowish halo",
+        "California Pest Rating Proposal for Cerotelium fici (2026): on Ficus carica begins as small yellowish upper-surface spots; reddish-brown to orange uredinial pustules develop primarily on the lower surface opposite the spots; lesions become angular/brown/necrotic; heavy infection -> yellowing and premature defoliation; also documented on M. nigra (Goncalves 2023) and M. alba (Baiyewu 2005)",
+        "Solano-Baez et al. (2017): angular necrotic upper-surface lesions with reddish-brown erumpent lower-surface pustules; premature defoliation",
+        "Goncalves et al. (2023), Plant Disease 107:2259 (doi:10.1094/PDIS-11-22-2656-PDN): first report of C. fici on Morus nigra in Brazil - light brown pustules with yellowish halos, leaf yellowing, premature leaf fall at high severity",
+        "Baiyewu et al. (2005), Pakistan J. Plant Pathology: occurrence of leaf rust of mulberry (Morus alba, Nigeria) by Cerotelium fici - pinhead brownish-black eruptive spots, then yellowing and premature withering",
         "Dev Maji (2011): epidemiology of brown leaf rust caused by Peridiopsora mori",
         "Kasuya et al. (2024), Mycoscience: Gymnosporangium mori comb. nov. taxonomy"
       ],
@@ -74,21 +77,27 @@
       "description": "Necrotic spotting diseases of mulberry leaves caused by diverse fungi (Cercospora moricola, Pseudocercospora mori, Mycosphaerella/Phloeospora maculans, Bipolaris, Curvularia, and others), visually characterized by flat, discrete necrotic spots.",
       "enabled": true,
       "visual_indicators": [
-        "Discrete, FLAT necrotic spots: small dark brown/black dots to larger (~0.5-1+ cm) dry circular or irregular lesions",
+        "Discrete, FLAT necrotic spots: small dark brown/black dots to larger (~0.5-3+ cm) dry circular or irregular lesions",
         "Spots often have pale/grey centers with dark borders and/or diffuse chlorotic (yellow) halos",
+        "'Target/eyespot' morphology (Cercospora/Mycosphaerella morphotype): centres fade WHITISH/GREY while a distinct dark-brown-to-black necrotic margin remains",
+        "Tiny dark brown-black acervuli (spore fruiting bodies) may dot the lesion centres (Mycosphaerella/Phloeospora)",
+        "Grey leaf spot (Pseudocercospora mori): jet-black to dark-grey round/ovoid lesions ~2-10 mm, frequently merging into larger patches; greyish mold-like or sooty patches possible",
         "Vein-limited angular spots occur in some pathogens (Phloeospora)",
-        "Severe cases: spots coalesce, leaves yellow and drop prematurely; grey mold-like patches possible (Pseudocercospora)"
+        "Severe cases: spots coalesce, leaves yellow and drop prematurely"
       ],
-      "annotation_guidance": "Label leaf_spot when flat necrotic lesions dominate and no raised powdery pustules (rust) or large spreading dead areas (blight) are present. The visual class deliberately groups multiple fungal pathogens that share this symptom profile.",
+      "annotation_guidance": "Label leaf_spot when flat necrotic lesions dominate and no raised powdery pustules (rust) or large spreading dead areas (blight) are present. Species-level identification is NOT possible visually; the class deliberately groups multiple fungal pathogens. Note documented sources disagree on whether merged spot lesions belong with spot or blight - use the halo/water-soaked-margin tests below and the needs_review path where ambiguous.",
       "confounding_conditions": [
         "Rust before pustule formation produces similar pinhead necrotic spots",
-        "Coalesced leaf-spot lesions produce a 'blighted' appearance (documented for Bipolaris sorokiniana)",
+        "Coalesced leaf-spot lesions produce a 'blighted' appearance (documented for Bipolaris sorokiniana and Pseudocercospora grey leaf spot)",
         "Physical damage and insect feeding can leave necrotic-looking marks",
-        "Herbicide/nutrient burn can cause necrotic flecking"
+        "Herbicide/nutrient burn can cause necrotic flecking",
+        "Bacterial leaf spot / blight (Pseudomonas syringae pv. mori) produces small angular black spots that overlap the spot class profile (see leaf_blight)"
       ],
       "evidence_sources": [
         "Arunakumar et al. (2023), BMC/PMC10665727: diversity of fungal pathogens in leaf spot of Indian mulberry; symptomatology per pathogen",
-        "Frontiers in Plant Science (2025): Pseudocercospora mori grey leaf spot of mulberry, Guangdong China - greyish mold-like patches, black sooty spots, light grey areas",
+        "Frontiers in Plant Science (2025): Pseudocercospora mori grey leaf spot of mulberry, Guangdong China - jet-black to dark-grey round/irregular/oval lesions 2-10 mm that merge into larger patches; greyish mold-like patches, black sooty spots, light grey areas, powdery dark grey coatings",
+        "RHS: 'Mulberry leaf spot (Mycosphaerella mori, syn. Phloeospora mori)' - small dark brown irregular spots with pale-green/yellow haloes; centres become whitish with brown necrotic margins; tiny brown-black acervuli on lesions; lesions merge to affect larger areas under severe attacks",
+        "Hawaii CTAHR PD-41 (Cercospora leaf spot of coffee as morphotype reference): circular spots with tan/gray/white centres - the classic Cercospora 'target/eyespot' lesion",
         "Soylu et al. (2003), Plant Pathology: Phloeospora maculans leaf spot, Turkey - vein-limited brown spots with chlorotic halo",
         "Florida DPI Plant Pathology Circular No. 329 (1990): Mycosphaerella mori - large dry necrotic circular spots",
         "Texas A&M Plant Disease Handbook: leaf spots of mulberry (Cercospora spp.)"
@@ -103,28 +112,35 @@
       "label": "Leaf Blight",
       "display_name": "Mulberry Leaf Blight",
       "category": "disease",
-      "description": "Blight conditions of mulberry foliage characterized by rapid, extensive browning/withering and death of leaf tissue (including bacterial blight, Pseudomonas syringae pv. mori, and advanced coalescing fungal necrosis), visually characterized by large irregular dead areas rather than discrete spots.",
+      "description": "Blight conditions of mulberry foliage represented by the bacterial blight symptom complex (primarily Pseudomonas syringae pv. mori) and advanced coalescing fungal necrosis. The defining visual signature is the evolution from discrete water-soaked spots to EXPANDING/COALESCING irregular dead tissue: lesions enlarge, fuse into large necrotic areas (often scorched or tip/margin-originating), and are frequently ringed by chlorotic halos with water-soaked advancing margins.",
       "enabled": true,
       "visual_indicators": [
-        "Large, rapidly expanding irregular necrotic (brown/dead) areas, often starting at leaf tips/margins or along veins",
-        "Water-soaked lesion margins (characteristic of bacterial blight) that later dry brown",
-        "Shoot-tip wilting/black striping on young shoots accompanies bacterial blight (may not be visible in a single-leaf photo)",
-        "Generalized scorching/withering rather than scattered discrete spots"
+        "Early lesions are small WATER-SOAKED (olive/translucent) spots, often brown-black, frequently ANGULAR and ringed by a yellow (chlorotic) halo; shoots may show black striping",
+        "Lesions ENLARGE and COALESCE into large, irregular necrotic regions rather than remaining discrete (the coalescence + spread is the defining difference vs leaf spot)",
+        "Water-soaked lesion margins at the advancing edge (characteristic of bacterial blight) that later dry brown",
+        "Necrosis often starts at leaf tips/margins or along veins and scorches/withers most of the leaf",
+        "Affects young/tender leaves and shoot tips predominantly (cool, wet spring); shoot-tip wilting and dieback may accompany (may not be visible in a single-leaf photo)"
       ],
-      "annotation_guidance": "Label leaf_blight when necrosis is extensive/coalescing/spreading rather than discrete spotting. If a photo shows only part of the affected tissue, prefer needs_review over forcing a class. Bacterial vs fungal causation CANNOT be determined visually - the class is deliberately causal-agent-agnostic.",
+      "annotation_guidance": "Use COALESCENCE as the primary discriminator: label leaf_blight when adjoining lesions FUSE into irregular joined necrotic zones (with/without water-soaked margins or yellow halos). A leaf with many lesions that REMAIN discrete and separated is leaf_spot, however numerous or severe. If a photo shows only part of the affected tissue, prefer needs_review over forcing a class. Bacterial vs fungal causation CANNOT be determined visually - the class is deliberately causal-agent-agnostic.",
       "confounding_conditions": [
-        "Coalesced leaf-spot lesions (documented in PMC10665727) appear blight-like - a major ambiguity",
+        "Coalesced leaf-spot lesions (documented in PMC10665727) appear blight-like - a major ambiguity; resolve by search for fused, haloed, water-soaked margins",
+        "Mild/early blight with only low-density discrete water-soaked spots matches the leaf_spot profile; if halos/angularity/distortion are present, weigh blight even at low lesion count",
         "Drought/salt/wind scorch and herbicide injury mimic marginal necrosis",
         "Late-stage rust causes whole-leaf withering that resembles blight"
       ],
       "evidence_sources": [
         "Texas A&M Plant Disease Handbook: Bacterial Blight (Pseudomonas syringae pv. mori) - watersoaked spots, black shoot stripes, tip wilt",
+        "PNW Plant Disease Handbook: mulberry bacterial blight - small brown-black spots with yellow haloes, distorted leaves, bud damage, shoot necrosis/dieback, cankers with ooze",
+        "RHS 'Bacterial leaf spot' (Pseudomonas syringae pv. mori): numerous small angular black leaf spots often with a yellow halo; whole leaves may turn yellow (NOTE: the SAME P. syringae pathology is published under both 'bacterial blight' and 'bacterial leaf spot' names - both belong to this bright symptom complex, and small angular spotted presentations overlap the leaf_spot class)",
+        "PlantVillage: mulberry bacterial blight - small black angular spots; large brown spots on leaves",
+        "Sahin (1999), first report: small water-soaked spots expanding to dark brown-black elongated lesions",
+        "Huang et al. (2025), Front. Plant Sci. 16:1517050: mulberry bacterial blight is a pathogen COMPLEX (P. syringae dominant among up to 10 confirmed bacteria); attacks young tender leaves/shoot tips",
         "J-Stage (2014) 'Mulberry Diseases and Their Control': bacterial blight listed among serious mulberry diseases",
         "Arunakumar et al. (2023): Bipolaris sorokiniana lesions coalesce into blightened appearance",
         "Philippine Phytopathology (1995) Dizon & Kakishima: symptomatology of mulberry rust/blight complex caused by C. fici"
       ],
       "definition_confidence": "medium",
-      "research_note": "FLAGGED RESEARCH RISK: literature does not provide a single crisp visual definition separating blight from severe leaf spot on mulberry. Boundary cases must go through expert review; see Known Limitations in docs/dataset.md."
+      "research_note": "FLAGGED RESEARCH RISK: literature does not provide a single crisp visual definition separating blight from severe leaf spot on mulberry. EXPERT ADJUDICATION (Sep 2026): a domain expert reviewed all 100 test-lot LB_A leaves (labeled contact sheet at /tmp/LB_A_review) and CONFIRMED ALL are leaf blight - many are early/mild blight (single large or few discrete necrotic lesions; median necrotic coverage 0.032, p90 0.085), so halo/angular/water-soaked mild lesions must be weighed as blight even without gross coalescence. FAILURE MODE IS WITHIN-CLASS SEVERITY SHIFT, NOT MISLABEL: blight training lots C-E span mild-to-severe (median cov 0.10-0.12, p90 0.34-0.40) while test lot LB_A is uniform-low (p90 0.085) and collapses into leaf_spot (80/100). See Known Limitations in docs/dataset.md."
     }
   ]
 }

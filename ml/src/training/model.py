@@ -60,11 +60,17 @@ def create_mobilenetv2(num_classes: int, dropout: float = 0.5,
 
     # Selectively unfreeze the last N inverted-residual blocks for fine-tuning.
     # Number of blocks is an experimental parameter, not a scientific constant.
+    # A negative value requests FULL-backbone fine-tuning (every feature layer
+    # trainable) — used when the pretrained weights need adapting to mulberry
+    # textures rather than just the head adapting.
     if unfreeze_last_n_blocks > 0:
         blocks = list(backbone.features.children())
         for block in blocks[-unfreeze_last_n_blocks:]:
             for p in block.parameters():
                 p.requires_grad = True
+    elif unfreeze_last_n_blocks < 0:
+        for p in backbone.features.parameters():
+            p.requires_grad = True
 
     model = LeafNet(backbone, num_classes=num_classes, dropout=dropout,
                     pretrained_weights=pretrained_id)

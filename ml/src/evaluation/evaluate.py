@@ -63,6 +63,8 @@ def evaluate_acceptance(metrics: dict, test_size: int) -> dict:
     cfg = load_acceptance()
     criteria = cfg["criteria"]
     per_class_f1 = [m["f1"] for m in metrics["per_class"].values()]
+    per_class_precision = [m["precision"] for m in metrics["per_class"].values()]
+    per_class_recall = [m["recall"] for m in metrics["per_class"].values()]
 
     results = [
         {"criterion": "test_size", "threshold": criteria["test_size_min"],
@@ -71,8 +73,20 @@ def evaluate_acceptance(metrics: dict, test_size: int) -> dict:
          "value": metrics["accuracy"], "met": metrics["accuracy"] >= criteria["accuracy_min"]},
         {"criterion": "macro_f1", "threshold": criteria["macro_f1_min"],
          "value": metrics["macro"]["f1"], "met": metrics["macro"]["f1"] >= criteria["macro_f1_min"]},
+        {"criterion": "macro_precision", "threshold": criteria["macro_precision_min"],
+         "value": metrics["macro"]["precision"],
+         "met": metrics["macro"]["precision"] >= criteria["macro_precision_min"]},
+        {"criterion": "macro_recall", "threshold": criteria["macro_recall_min"],
+         "value": metrics["macro"]["recall"],
+         "met": metrics["macro"]["recall"] >= criteria["macro_recall_min"]},
         {"criterion": "worst_class_f1", "threshold": criteria["per_class_f1_min"],
          "value": min(per_class_f1), "met": min(per_class_f1) >= criteria["per_class_f1_min"]},
+        {"criterion": "worst_class_precision", "threshold": criteria["per_class_precision_min"],
+         "value": min(per_class_precision),
+         "met": min(per_class_precision) >= criteria["per_class_precision_min"]},
+        {"criterion": "worst_class_recall", "threshold": criteria["per_class_recall_min"],
+         "value": min(per_class_recall),
+         "met": min(per_class_recall) >= criteria["per_class_recall_min"]},
     ]
 
     sufficient_evidence = test_size >= criteria["test_size_min"]

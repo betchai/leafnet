@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import EmptyState from "../components/EmptyState";
-import { api } from "../lib/api";
+import { api, apiFetch } from "../lib/api";
+import { useAuth } from "../auth/AuthContext";
 
 interface ModelRow {
   id: string;
@@ -117,11 +118,11 @@ const LIFECYCLE_NEXT: Record<string, string> = {
  *  switches the ML service. Clicking a row shows how the performance was
  *  computed and on what test data. */
 export default function Models() {
+  const { user } = useAuth();
   const [items, setItems] = useState<ModelRow[] | null>(null);
   const [note, setNote] = useState<string | undefined>();
   const [balance, setBalance] = useState<BalanceSummary | null>(null);
 
-  const [actor, setActor] = useState("");
   const [reason, setReason] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -138,7 +139,7 @@ export default function Models() {
 
   useEffect(() => {
     refresh().catch(() => setItems([]));
-    fetch("/api/datasets/status")
+    apiFetch("/datasets/status")
       .then((r) => r.json())
       .then((d) => setBalance(d.balanceSummary ?? null))
       .catch(() => setBalance(null));
@@ -148,13 +149,12 @@ export default function Models() {
   const metricsUnreliable = !!showBanner;
 
   async function promote(id: string, to: string) {
-    if (!actor) return setMsg("Enter the acting researcher/expert name first.");
     setBusy(true);
     try {
-      const r = await fetch(`/api/tools/models/${id}/lifecycle`, {
+      const r = await apiFetch(`/tools/models/${id}/lifecycle`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ to, actor, reason: reason || undefined }),
+        body: JSON.stringify({ to, reason: reason || undefined }),
       });
       const d = await r.json();
       setMsg(r.ok ? `✅ ${d.version} promoted → ${to}` : `Failed: ${d.error}`);
@@ -167,13 +167,12 @@ export default function Models() {
   }
 
   async function activate(id: string) {
-    if (!actor) return setMsg("Enter the acting researcher/expert name first.");
     setBusy(true);
     try {
-      const r = await fetch(`/api/models/${id}/activate`, {
+      const r = await apiFetch(`/models/${id}/activate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ actor, reason: reason || undefined }),
+        body: JSON.stringify({ reason: reason || undefined }),
       });
       const d = await r.json();
       setMsg(
@@ -192,7 +191,7 @@ export default function Models() {
     setSelected(null);
     setDetailLoading(true);
     try {
-      const r = await fetch(`/api/models/${id}/detail`);
+      const r = await apiFetch(`/models/${id}/detail`);
       const d: ModelDetail = await r.json();
       if (!r.ok) setMsg(`Detail failed: ${(d as unknown as { error?: string }).error ?? r.status}`);
       else setSelected(d);
@@ -232,9 +231,7 @@ export default function Models() {
       </div>
 
       <div className="flex flex-wrap items-center gap-2 text-sm">
-        <label className="text-xs text-gray-500">Acting as (expert/researcher):</label>
-        <input className="border rounded px-2 py-1 w-44" value={actor}
-          onChange={(e) => setActor(e.target.value)} placeholder="expert name" />
+        <span className="text-xs text-gray-500">Acting as: <strong>{user?.name ?? "you"}</strong> ({user?.role})</span>
         <label className="text-xs text-gray-500">Reason (optional):</label>
         <input className="border rounded px-2 py-1 w-64" value={reason}
           onChange={(e) => setReason(e.target.value)} placeholder="why this change" />
@@ -305,7 +302,7 @@ export default function Models() {
                     <td className="p-3">
                       <div className="flex gap-1.5" onClick={(e) => e.stopPropagation()}>
                         {m.lifecycleStatus === "approved" && !m.isActive && (
-                          <button disabled={busy || !actor}
+                          <button disabled={busy}
                             onClick={() => activate(m.id)}
                             className="px-2 py-1 rounded text-xs font-medium bg-green-600 text-white hover:bg-green-700 disabled:opacity-40"
                             title="Set as the served model (deactivates others)">
@@ -316,7 +313,7 @@ export default function Models() {
                           <span className="text-xs text-green-700 font-medium self-center">serving</span>
                         )}
                         {next && !m.isActive && (
-                          <button disabled={busy || !actor}
+                          <button disabled={busy}
                             onClick={() => promote(m.id, next)}
                             className="px-2 py-1 rounded text-xs border border-slate-300 hover:bg-slate-50 disabled:opacity-40"
                             title={`Advance lifecycle to ${next} (audited)`}>

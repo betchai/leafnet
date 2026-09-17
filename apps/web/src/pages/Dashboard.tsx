@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import EmptyState from "../components/EmptyState";
-import { api, ClassConfig, PredictionHistoryRow } from "../lib/api";
+import { api, apiFetch, ClassConfig, PredictionHistoryRow } from "../lib/api";
 
 interface Status {
   research: Record<string, number>;
@@ -20,7 +20,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     api.classes().then(setClasses).catch(() => {});
-    fetch("/api/datasets/status").then((r) => r.json()).then(setStatus).catch(() => {});
+    apiFetch("/datasets/status").then((r) => r.json()).then(setStatus).catch(() => {});
     api.predictionHistory(5).then((r) => setRecent(r.items)).catch(() => {});
   }, []);
 

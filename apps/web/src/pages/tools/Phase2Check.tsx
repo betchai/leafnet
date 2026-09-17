@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, ClassConfig } from "../../lib/api";
+import { api, apiFetch, ClassConfig } from "../../lib/api";
 
 /**
  * Phase 2 validation panel — moved into the encapsulated Tools section.
@@ -45,7 +45,7 @@ export default function Phase2Validation() {
         try {
           // Authoritative, uncapped live counts from the composition endpoint
           // (the images list caps at 200 rows, so per-class fetches undercount).
-          const r = await fetch("/api/datasets/status");
+          const r = await apiFetch("/datasets/status");
           const status = await r.json();
           const approved: Record<string, number> = {};
           for (const [key, val] of Object.entries(status.perClass ?? {})) {

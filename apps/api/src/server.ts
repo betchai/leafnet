@@ -19,13 +19,15 @@ import toolsPipelineRoutes from "./routes/toolsPipeline.js"; // TOOLS + PIPELINE
 import toolsModelRegisterRoutes from "./routes/toolsModelRegister.js"; // TOOLS + PIPELINE
 import toolsInsightsRoutes from "./routes/toolsInsights.js"; // INSIGHTS
 import toolsFeedbackReviewRoutes from "./routes/toolsFeedbackReview.js"; // PHASE 9.1
+import authRoutes from "./routes/auth.js";
+import userRoutes from "./routes/users.js";
 
 const app = express();
 const PORT = Number(process.env.API_PORT ?? 4000);
 
 // Production security: explicit CORS (set WEB_ORIGIN in production), secure headers
 const allowedOrigins = (process.env.WEB_ORIGIN ?? "http://localhost:5173,http://localhost:5174").split(",");
-app.use(cors({ origin: allowedOrigins }));
+app.use(cors({ origin: allowedOrigins, credentials: true }));
 app.use(helmet());
 app.use(express.json({ limit: "1mb" }));
 
@@ -54,6 +56,8 @@ const aw = (fn: express.RequestHandler): express.RequestHandler =>
 
 app.use("/api/health", healthRoutes);
 app.use("/api/classes", classRoutes);
+app.use("/api/auth", authRoutes);
+app.use("/api/users", userRoutes);
 app.use("/api/images", imageRoutes);
 app.use("/api/predictions", predictionRoutes);
 app.use("/api/models", modelRoutes);

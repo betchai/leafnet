@@ -11,19 +11,30 @@
  * No product page or API contract depends on it.
  */
 import { NavLink, Outlet } from "react-router-dom";
+import { useAuth } from "../../auth/AuthContext";
+import { Role } from "../../components/RouteGuards";
 
-const TABS = [
-  ["Acquire & Label", "/tools/label"],
-  ["Bulk Ingest", "/tools/bulk"], // TOOLS
-  ["Expert Review", "/tools/review"],
-  ["Feedback Review", "/tools/feedback-review"], // PHASE 9.1
-  ["Monitoring", "/tools/monitoring"], // PHASE 9.1
-  ["Dataset Status", "/tools/status"],
-  ["Pipeline Runner", "/tools/pipeline"], // TOOLS + PIPELINE
-  ["Phase 2 Validator", "/tools/phase2"],
-] as const;
+type Tab = { label: string; to: string; roles: Role[] };
+
+// TOOLS tabs, role-filtered: Researchers can acquire/label + bulk ingest;
+// everything else (expert review, feedback, monitoring, status, pipeline,
+// phase-2 validation) is Expert-only.
+const TABS: Tab[] = [
+  { label: "Acquire & Label", to: "/tools/label", roles: ["RESEARCHER", "EXPERT"] },
+  { label: "Bulk Ingest", to: "/tools/bulk", roles: ["RESEARCHER", "EXPERT"] },
+  { label: "Expert Review", to: "/tools/review", roles: ["EXPERT"] },
+  { label: "Feedback Review", to: "/tools/feedback-review", roles: ["EXPERT"] },
+  { label: "Monitoring", to: "/tools/monitoring", roles: ["EXPERT"] },
+  { label: "Dataset Status", to: "/tools/status", roles: ["EXPERT"] },
+  { label: "Pipeline Runner", to: "/tools/pipeline", roles: ["EXPERT"] },
+  { label: "Phase 2 Validator", to: "/tools/phase2", roles: ["EXPERT"] },
+];
 
 export default function ToolsLayout() {
+  const { user } = useAuth();
+  const role = user?.role ?? "FARMER";
+  const tabs = TABS.filter((t) => t.roles.includes(role));
+
   return (
     <div className="space-y-6">
       <div className="rounded-lg bg-slate-100 border border-slate-200 p-3 text-xs text-slate-600">
@@ -31,17 +42,17 @@ export default function ToolsLayout() {
         the public app. All actions are recorded in the annotation audit trail.
       </div>
       <nav className="flex gap-1 overflow-x-auto border-b border-gray-200 pb-2">
-        {TABS.map(([label, to]) => (
+        {tabs.map((t) => (
           <NavLink
-            key={to}
-            to={to}
+            key={t.to}
+            to={t.to}
             className={({ isActive }) =>
               `px-3 py-1.5 rounded-md text-sm font-medium whitespace-nowrap ${
                 isActive ? "bg-slate-700 text-white" : "text-gray-600 hover:bg-gray-100"
               }`
             }
           >
-            {label}
+            {t.label}
           </NavLink>
         ))}
       </nav>

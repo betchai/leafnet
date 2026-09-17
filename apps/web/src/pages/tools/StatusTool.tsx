@@ -1,5 +1,6 @@
 // TOOLS
 import { useEffect, useState } from "react";
+import { apiFetch } from "../../lib/api";
 
 interface Composition {
   research: Record<string, number>;
@@ -17,7 +18,7 @@ export default function StatusTool() {
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/datasets/status")
+    apiFetch("/datasets/status")
       .then((r) => r.json())
       .then(setC)
       .catch((e) => setErr(String(e)));
@@ -89,7 +90,7 @@ function CutVersion() {
   const [datasets, setDatasets] = useState<{ version: string; totalImages: number | null; status: string }[]>([]);
 
   async function refresh() {
-    const r = await fetch("/api/datasets").then((r) => r.json());
+    const r = await apiFetch("/datasets").then((r) => r.json());
     setDatasets(r.items ?? []);
   }
   useEffect(() => {
@@ -98,7 +99,7 @@ function CutVersion() {
 
   async function cut() {
     if (!version.trim()) return setMsg("Enter a version, e.g. v0.1");
-    const r = await fetch("/api/datasets/cut", {
+    const r = await apiFetch("/datasets/cut", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ version: version.trim() }),

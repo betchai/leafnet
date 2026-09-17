@@ -1,6 +1,8 @@
 // TOOLS (Phase 9.1): feedback review queue — expert verification of application
 // feedback. Verified labels become CANDIDATE training data only.
 import { useEffect, useState } from "react";
+import { apiFetch } from "../../lib/api";
+import { useAuth } from "../../auth/AuthContext";
 
 interface FeedbackItem {
   feedbackId: string;
@@ -22,32 +24,32 @@ const STATUSES = ["SUBMITTED", "UNDER_REVIEW", "VERIFIED", "REJECTED", "NEEDS_RE
 const CLASSES = ["healthy", "leaf_rust", "leaf_spot", "leaf_blight"];
 
 export default function FeedbackReviewTool() {
+  const { user } = useAuth();
   const [items, setItems] = useState<FeedbackItem[]>([]);
   const [statusFilter, setStatusFilter] = useState("");
-  const [reviewer, setReviewer] = useState("");
   const [notes, setNotes] = useState("");
   const [corrections, setCorrections] = useState<Record<string, string>>({});
   const [msg, setMsg] = useState<string | null>(null);
 
   async function refresh() {
     const qs = statusFilter ? `?status=${statusFilter}` : "";
-    const r = await fetch(`/api/tools/feedback${qs}`).then((r) => r.json());
-    setItems(r.items ?? []);
+    const r = await apiFetch(`/tools/feedback${qs}`);
+    const data = await r.json();
+    setItems(data.items ?? []);
   }
   useEffect(() => { refresh().catch(() => {}); }, [statusFilter]);
 
   async function review(id: string, action: string) {
-    if (!reviewer) return setMsg("Enter the expert reviewer name first.");
     const item = items.find((i) => i.feedbackId === id);
     const verifiedClass =
       action === "verify"
         ? corrections[id] || item?.suggestedClass || (item?.verdict === "agree" ? item?.prediction.predictedClass : null)
         : corrections[id];
     const body: Record<string, unknown> = {
-      actor: reviewer, actorRole: "expert", action,
+      action,
       verifiedClass: verifiedClass ?? undefined, reason: notes || undefined,
     };
-    const r = await fetch(`/api/tools/feedback/${id}/review`, {
+    const r = await apiFetch(`/tools/feedback/${id}/review`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -67,9 +69,9 @@ export default function FeedbackReviewTool() {
         </select>
         <span className="text-xs text-gray-400">{items.length} item(s)</span>
         <div className="ml-auto flex items-center gap-2 text-sm">
-          <label>Reviewer:</label>
-          <input className="border rounded px-2 py-1 w-40" value={reviewer}
-            onChange={(e) => setReviewer(e.target.value)} placeholder="expert name" />
+          <span className="text-xs text-gray-400">as {user?.name ?? "you"} (expert)</span>
+          <input className="border rounded px-2 py-1 w-52" value={notes}
+            onChange={(e) => setNotes(e.target.value)} placeholder="review notes (optional)" />
         </div>
       </div>
 
@@ -106,7 +108,7 @@ export default function FeedbackReviewTool() {
               <div className="flex flex-wrap items-center gap-1.5 pt-1">
                 {["SUBMITTED", "NEEDS_REVIEW", "UNDER_REVIEW"].includes(it.reviewStatus) && (
                   <>
-                    {["SUBMITTED", "NEEDS_REVIEW"].includes(it.reviewStatus) && (
+{["SUBMITTED", "NEEDS_REVIEW"].includes(it.reviewStatus) && (
                       <button onClick={() => review(it.feedbackId, "start_review")}
                         className="px-2 py-1 rounded text-xs border hover:bg-gray-50">Start review</button>
                     )}

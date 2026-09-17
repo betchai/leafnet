@@ -3,11 +3,12 @@
 // NOTE: this NEVER sets isActive — promotion remains a human decision.
 import { Router } from "express";
 import { PrismaClient } from "@prisma/client";
+import { requireServiceToken } from "../auth/middleware.js";
 
 const prisma = new PrismaClient();
 const router = Router();
 
-router.post("/register", async (req, res) => {
+router.post("/register", requireServiceToken, async (req, res) => {
   const { versionLabel, experimentId, architecture, framework, trainedAt, notes } = req.body ?? {};
   const missing = [versionLabel, experimentId].filter((v) => !v);
   if (missing.length) return res.status(400).json({ error: `missing: ${missing.join(", ")}` });

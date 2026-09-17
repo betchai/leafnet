@@ -44,6 +44,7 @@ def run_experiment(exp_id: str, manifest_path: Path, config: dict,
                    freeze_backbone: bool | None = None,
                    fine_tune_layers: int | None = None,
                    epochs: int | None = None,
+                   class_weights: dict | None = None,
                    on_epoch: Callable[[dict], None] | None = None,
                    output_dir: Path | None = None) -> dict:
     d = dict(config["experimentDefaults"])
@@ -54,6 +55,10 @@ def run_experiment(exp_id: str, manifest_path: Path, config: dict,
         d["fineTuneLayers"] = fine_tune_layers
     if epochs is not None:
         d["epochs"] = epochs
+    # Per-class loss weighting, e.g. {"leaf_blight": 2.0} to force the model to
+    # stop ignoring a confusable class. Recorded verbatim in the config/metadata.
+    if class_weights:
+        d["classWeights"] = dict(class_weights)
 
     # Output root; tests may sandbox this to a temp dir so a training run never
     # pollutes the real ml/models or ml/reports/experiments trees.
@@ -96,7 +101,20 @@ def run_experiment(exp_id: str, manifest_path: Path, config: dict,
     optimizer = torch.optim.Adam(param_groups, weight_decay=d["weightDecay"])
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
         optimizer, factor=d["schedulerFactor"], patience=d["schedulerPatience"])
-    criterion = nn.CrossEntropyLoss()
+    raw_weights = d.get("classWeights")
+    if raw_weights:
+        # {class_key: weight} -> tensor aligned to taxonomy index (class_map ids)
+        cw = torch.zeros(len(class_map))
+        for key, w in raw_weights.items():
+            idx = class_map.get(key)
+            if idx is None:
+                raise ValueError(f"classWeights references unknown class key: {key}")
+            cw[idx] = w
+        cw[cw == 0] = 1.0
+        criterion = nn.CrossEntropyLoss(weight=cw)
+        print(f"[{exp_id}] class-weighted loss: {raw_weights}")
+    else:
+        criterion = nn.CrossEntropyLoss()
 
     history: list[dict] = []
     best_val_loss = float("inf")
@@ -181,7 +199,9 @@ def run_experiment(exp_id: str, manifest_path: Path, config: dict,
         "pretrained_weights": pretrained_id,
         "transfer_learning_strategy": (
             "frozen_backbone_head_only" if d["freezeBackbone"] and not d["fineTuneLayers"]
-            else f"partial_fine_tune_last_{d['fineTuneLayers']}_blocks"
+            else ("full_backbone_fine_tune"
+                  if d["fineTuneLayers"] < 0
+                  else f"partial_fine_tune_last_{d['fineTuneLayers']}_blocks")
         ),
         "parameters": params,
         "configuration": d,

@@ -44,6 +44,17 @@ def test_fine_tune_unfreezes_selected_blocks_only():
     assert t_ft > t_full  # more params train when blocks are unfrozen
 
 
+def test_full_backbone_fine_tune_unfreezes_every_feature_layer():
+    """fineTuneLayers=-1 means FULL-backbone fine-tune: every backbone feature
+    becomes trainable (used when pretrained weights must adapt to mulberry
+    textures instead of just the head)."""
+    ft, _ = create_mobilenetv2(num_classes=4, freeze_backbone=True, unfreeze_last_n_blocks=-1)
+    p = trainable_parameters(ft)
+    # head (~5k) + every backbone parameter train: essentially the whole model
+    assert p["trainable_parameters"] > 1_900_000
+    assert abs(p["trainable_parameters"] / p["total_parameters"] - 1.0) < 0.01
+
+
 def test_train_vs_eval_transforms(tmp_path):
     from PIL import Image
     config = json.loads((Path(__file__).parents[1] / "src/config/training.json").read_text())
@@ -152,3 +163,36 @@ def test_tiny_training_run_on_fixtures(fixture_dir):
     # Sandbox check: a test training run must never touch the real ml/models tree.
     assert not (Path(__file__).parents[0] / ".." / "models" / "vDEVFIXTURES_EXP-TEST").resolve().exists()
     assert (out_root / "models" / "vDEVFIXTURES_EXP-TEST" / "model_best.pt").exists()
+
+
+def test_class_weighted_loss_run_on_fixtures(fixture_dir):
+    """class_weights must (a) be recorded verbatim in experiment config so every
+    run is auditable, and (b) not break the training loop."""
+    import tempfile
+    from src.data.manifest import write_manifest
+    config = json.loads((Path(__file__).parents[1] / "src/config/training.json").read_text())
+    config = json.loads(json.dumps(config))  # deep copy
+    config["experimentDefaults"].update({"epochs": 1, "batchSize": 2})
+
+    files = sorted(fixture_dir.glob("DEVFIX_green_*.jpg"))
+    imgs = [fixture_dir / "DEVFIX_green_a.jpg", fixture_dir / "DEVFIX_green_b.jpg"]
+    rows = []
+    for i, lab in enumerate(["healthy", "leaf_rust", "leaf_spot", "leaf_blight"] * 2):
+        dst = fixture_dir / f"cw_{i}.jpg"
+        if not dst.exists():
+            dst.write_bytes(imgs[i % 2].read_bytes())
+        rows.append({"image_id": f"cw{i}", "path": str(dst), "class": lab,
+                     "sha256": f"h{i}", "split": "train" if i < 6 else "validation",
+                     "annotation_status": "APPROVED"})
+    mp = Path(tempfile.mkdtemp()) / "cw.jsonl"
+    write_manifest(rows, mp)
+
+    from src.training.train import run_experiment
+    out_root = Path(tempfile.mkdtemp(prefix="leafnet_train_"))
+    meta = run_experiment("EXP-CW", mp, config, dataset_version="vDEVFIXTURES",
+                          notes="PILOT weighted fixture training",
+                          class_weights={"leaf_blight": 2.0, "leaf_spot": 1.5},
+                          output_dir=out_root)
+    assert meta["configuration"]["classWeights"] == {"leaf_blight": 2.0, "leaf_spot": 1.5}
+    assert meta["status"] == "PILOT_PIPELINE_VALIDATION"
+    assert (out_root / "models" / "vDEVFIXTURES_EXP-CW" / "model_best.pt").exists()

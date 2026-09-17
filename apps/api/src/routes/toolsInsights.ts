@@ -4,12 +4,13 @@
 // from research metrics per Phase 9 rule 23).
 import { Router } from "express";
 import { PrismaClient } from "@prisma/client";
+import { authorize } from "../auth/middleware.js";
 
 const prisma = new PrismaClient();
 const router = Router();
 const ml = () => process.env.ML_SERVICE_URL ?? "";
 
-router.get("/", async (req, res) => {
+router.get("/", authorize("insights"), async (req, res) => {
   // Default to the ACTIVE model's dataset lineage when the caller doesn't pin
   // one — evaluation artifacts are keyed by that dataset's version (e.g. V1.0).
   // Fall back to the most recently cut dataset, then to a safe placeholder.

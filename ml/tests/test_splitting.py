@@ -36,6 +36,44 @@ def test_partition_approximates_80_10_10():
     assert abs(counts["test"] - 200) <= 8
 
 
+def test_image_level_fallback_stratifies_by_class_80_10_10():
+    """REGRESSION (healthy 495/5/0): an image-level fallback must not let one
+    class starve test/validation. 2000 rows, 500/class, no group keys -> every
+    class measurable on both held-out sides, global totals exactly 1600/200/200."""
+    rows = [
+        {"image_id": f"i{i}", "class": ["healthy", "leaf_rust", "leaf_spot", "leaf_blight"][i % 4]}
+        for i in range(2000)
+    ]
+    audit = create_grouped_splits(rows, seed=42)["audit"]
+    assert audit["strategy"].startswith("image_level_random_fallback")
+    assert audit["classes_missing_test"] == []
+    assert audit["classes_missing_val"] == []
+    assert audit["final_counts"] == {"train": 1600, "validation": 200, "test": 200}
+    assert audit["per_class_counts"] == {
+        "healthy": {"train": 400, "validation": 50, "test": 50},
+        "leaf_rust": {"train": 400, "validation": 50, "test": 50},
+        "leaf_spot": {"train": 400, "validation": 50, "test": 50},
+        "leaf_blight": {"train": 400, "validation": 50, "test": 50},
+    }
+
+
+def test_unique_hash_singletons_starve_no_class_heldout():
+    """The real re-upload shape: no session/farm/leaf keys, unique sha256 per
+    image (singleton groups promoted to the ungrouped pool). Stratification must
+    hold — healthy gets held-out rows, not the old 495/5/0."""
+    rows = [
+        {"image_id": f"i{i}", "class": cls, "sha256": f"h{i}"}
+        for cls in ("healthy", "leaf_rust", "leaf_spot", "leaf_blight")
+        for i in range(500)
+    ]
+    audit = create_grouped_splits(rows, seed=42)["audit"]
+    assert audit["classes_missing_test"] == []
+    assert audit["classes_missing_val"] == []
+    assert audit["final_counts"] == {"train": 1600, "validation": 200, "test": 200}
+    for cls, counts in audit["per_class_counts"].items():
+        assert counts["test"] == 50 and counts["validation"] == 50, f"{cls} starved"
+
+
 def test_grouped_split_enforces_80_10_10():
     """Grouped (leakage-safe) splits must target 80/10/10 per class — the
     declared ratio in pipeline.json splitRatios. 2000 images, 10 equal sessions
@@ -176,3 +214,62 @@ def test_audit_reports_background_distribution():
     assert "background_dist" in audit
     total_bg = sum(sum(c.values()) for c in audit["background_dist"].values())
     assert total_bg == 200
+
+
+def test_coarse_sessions_never_empty_a_class_heldout():
+    """REGESSION: whole sessions (90-210 imgs each) are coarser than 10% of a
+    class (50). The old 'nearest subset' allowed the EMPTY pick, which parked
+    every session of a class in train (healthy 0/0). A class with >=3 sessions
+    must get >=1 whole session in BOTH test and validation."""
+    rows = [
+        {"image_id": f"i{i}", "class": cls, "collection_session_id": f"{cls}_s{i // 100}",
+         "background_type": "white_removed"}
+        for cls in ("healthy", "leaf_rust", "leaf_blight", "leaf_spot")
+        for i in range(400)  # 4 sessions x 100 per class
+    ]
+    res = create_grouped_splits(rows, seed=42)
+    audit = res["audit"]
+    assert audit["strategy"] == "group_aware_union_find"
+    assert audit["classes_missing_test"] == []
+    assert audit["classes_missing_val"] == []
+    # every class measurable on both held-out sides
+    for cls, counts in audit["per_class_counts"].items():
+        assert counts["test"] >= 100, f"{cls} test empty"
+        assert counts["validation"] >= 100, f"{cls} validation empty"
+    # drift is reported (never silently swallowed)
+    assert {"train", "validation", "test"} == set(audit["drift"])
+    for split, d in audit["drift"].items():
+        assert {k for k in ("target", "actual", "delta")} == set(d)
+    # whole sessions never straddle splits (leakage invariant)
+    by_session: dict[str, set[str]] = {}
+    for r in res["rows"]:
+        by_session.setdefault(r["collection_session_id"], set()).add(r["split"])
+    assert all(len(s) == 1 for s in by_session.values())
+
+
+def test_audit_flags_all_white_removed_test_set():
+    """When NO natural-background images exist at all, the audit must say so
+    explicitly (test_all_white_removed=True) instead of leaving it ambiguous."""
+    rows = [
+        {"image_id": f"i{i}", "class": "healthy", "background_type": "white_removed",
+         "collection_session_id": f"s{i // 50}"}
+        for i in range(400)
+    ]
+    audit = create_grouped_splits(rows, seed=42)["audit"]
+    assert audit["test_all_white_removed"] is True
+    assert audit["test_natural_count"] == 0
+
+
+def test_per_class_metrics_are_reported():
+    """Audit exposes per-class split membership so evaluation can compute
+    per-class coverage (the buggy split hid healthy entirely from test/val)."""
+    rows = [
+        {"image_id": f"i{i}", "class": cls, "collection_session_id": f"{cls}_s{i // 100}",
+         "background_type": "white_removed"}
+        for cls in ("healthy", "leaf_rust", "leaf_blight", "leaf_spot")
+        for i in range(400)
+    ]
+    audit = create_grouped_splits(rows, seed=42)["audit"]
+    assert set(audit["per_class_counts"]) == {"healthy", "leaf_rust", "leaf_blight", "leaf_spot"}
+    for cls, counts in audit["per_class_counts"].items():
+        assert counts["train"] > 0

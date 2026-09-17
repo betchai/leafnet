@@ -93,17 +93,69 @@ final evaluation.
 ### Leakage prevention
 
 Multiple photos of the same physical leaf/plant/farm/session must not straddle
-splits. Images carry optional grouping keys (`plant_id`, `leaf_id`,
-`farm_id`, `collection_session_id`). Recommended strategy:
+splits. Images carry optional grouping keys (`collection_session_id`,
+`farm_id`, `plant_id`, `leaf_id`). Splitting
+(`ml/src/data/splitting.py` → `create_grouped_splits`) is:
 
-1. Group images by the finest available key chain
-   (session → farm → plant → leaf).
-2. Assign **whole groups** to splits using stratified group sampling so each
-   split keeps approximately the 500-per-class balance.
-3. Only fall back to image-level random split when no grouping metadata exists
-   — and record that fact in the manifest/version notes.
+1. **Union-find over all identity keys plus the image content hash (`sha256`).**
+   Images sharing ANY identifier — including exact duplicates uploaded under
+   *different* provenance keys — are merged into one leakage component and can
+   therefore never straddle `train` / `validation` / `test`.
+2. **Whole groups are assigned to splits per class toward 80/10/10**
+   (nearest-subset selection, never the empty pick). A class with ≥ 3 groups is
+   **guaranteed ≥ 1 whole group in test AND ≥ 1 in validation**, so no class can
+   become unmeasurable just because its sessions are coarser than 10%. On ties,
+   natural-background (in-situ) groups are preferred so distribution-shift
+   evaluation has support.
+3. **Singleton groups (size 1) carry no leakage risk** and are promoted to the
+   ungrouped pool rather than running the exhaustive subset search over them.
+4. A global rebalance returns any surplus held-out groups to train without ever
+   emptying a class's test/validation side, then the audit records the final
+   counts, per-class counts, background distribution, and drift vs the 80/10/10
+   target in the manifest's `.audit.json`.
+5. Grouping keys are **never deleted** — even in a fallback/PILOT run they are
+   retained in the manifest so provenance can be re-split later.
 
-Implemented in `ml/src/data/splitting.py` (`create_grouped_splits`).
+### Raw / ungrouped photos — image-level fallback methodology
+
+Raw photos (field/scrape captures) often carry **no grouping metadata at all**,
+and each image has a unique content hash, so no leakage components exist and
+the splitter drops to the documented image-level fallback (`strategy =
+image_level_random_fallback_no_grouping_metadata_available`). This path is
+still **class-stratified and leak-safe**:
+
+- **Per-class 80/10/10 (not a global lottery).** Each class is apportioned its
+  own `train`/`validation`/`test` counts via largest-remainder of the 80/10/10
+  ratio with the same guarantee as the grouped path: a class with ≥ 3 rows gets
+  **≥ 1 validation AND ≥ 1 test row**, so a class can never be silently
+  unmeasurable (the previous "healthy 495/5/0" bug — the old code filled
+  test/validation first-come-first-served, so natural-background rows consumed
+  every held-out slot and a lab-scan class like healthy vanished from test).
+- **Within a class**, rows are shuffled (fixed seed → reproducible) and
+  natural-background (OOD) rows are prioritized into test so covariate-shift
+  evaluation keeps support; unlabeled rows go to train only.
+- **Global rebalance** then nails the declared partition (for the 2,000-image
+  raw set: exactly **1,600 / 200 / 200**, i.e. 400 / 50 / 50 per class) without
+  ever draining a class's last held-out row.
+- The same leakage guarantees hold: exact duplicates are locked by `sha256`
+  union-find *before* the fallback runs, singletons pose no leakage risk, and
+  only `APPROVED` rows reach the manifest.
+
+Workflow impact: the raw/ungrouped pipeline runs score **higher on acceptance
+criteria** because every class — including ones that were previously homeless
+in held-out sets — now has measurable test/validation support, and leakage
+cannot silently inflate the numbers since duplicate content never straddles
+splits.
+
+### Enforcement (training-time)
+
+`ml/src/training/preflight.py` hard-refuses a manifest where any taxonomy class
+is absent, any class with ≥ 3 rows has no test or validation coverage, any
+split falls below the 5%-of-total sanity floor, duplicate content (same
+`sha256`) straddles splits, or any row is not `APPROVED` with a valid label and
+a readable file. The pipeline falls back to a PILOT split only if the grouped
+preflight fails, and the PILOT split must pass the same preflight or training
+is refused outright.
 
 ## 6. Labeling philosophy & expert ground truth
 

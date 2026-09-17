@@ -19,6 +19,17 @@ SPOT = "leaf_spot"
 BLIGHT = "leaf_blight"
 
 # Relative thresholds for each measure (derived from symptom semantics).
+# Literature bases (see ml/src/config/classes.json evidence_sources):
+#   - blight: P. syringae pv. mori - water-soaked spots, coalescence, yellow halos,
+#     angular/marginal lesions (TA&M; PNW; RHS; Sahin 1999)
+#   - spot: Cercospora/Mycosphaerella/Phloeospora - discrete flat spots, whitish
+#     centres with dark necrotic margins, chlorotic halos, 2-10 mm grey lesions
+#     that may merge (TA&M; RHS; Frontiers 2025)
+#   - rust: Cerotelium fici - erumpent sub-mm to ~1 mm orange/reddish powdery
+#     pustules, mostly abaxial, light-brown form with yellowish halos (CA Pest
+#     Rating 2026; Goncalves 2023; Solano-Baez 2017)
+# NOTE: chlorotic halos alone are class-AMBIGUOUS (ring spots, blight margins,
+# and light-brown rust pustules), so `_append_halo` disambiguates with spread.
 _M = {
     "necrosis_fraction": {
         "blight_high": 0.18,   # large areas of dead tissue -> blight
@@ -30,7 +41,7 @@ _M = {
         "spot": 0.45,          # below this, discrete -> spot-like
     },
     "chlorosis_fraction": {
-        "spot_halo": 0.10,     # yellow halos around spots
+        "spot_halo": 0.10,     # yellow halos around spots/blight margins
     },
     "pustule_density": {
         "rust": 0.0015,        # tiny pulverulent structures -> rust
@@ -41,7 +52,7 @@ _M = {
     },
     "leaf_green_fraction": {
         "healthy": 0.85,       # mostly green -> healthy
-        "blight_low": 0.45,    # far below -> heavy damage
+        "blight_low": 0.45,    # far below -> heavy damage (all three diseases yellow leaves)
     },
 }
 
@@ -217,19 +228,42 @@ def _append_necrosis(c, meas, top, second):
 
 
 def _append_halo(c, meas, top, second):
+    """Chlorotic (yellow) tissue. Literature: halos ring leaf-spot lesions
+    (RHS: pale-green/yellow haloes that turn brown-margined), bacterial-blight
+    margins and angular spots (PNW/RHS/TA&M: 'yellow haloes'), and light-brown
+    rust pustules (Goncalves 2023). Halos are therefore class-ambivalent; the
+    vote is disambiguated by lesion spread: discrete spots + halo -> spot;
+    coalesced dead zone + halo -> blight."""
     chl = meas.get("chlorosis_fraction", 0.0)
-    if chl >= _M["chlorosis_fraction"]["spot_halo"]:
+    if chl < _M["chlorosis_fraction"]["spot_halo"]:
+        c.append(_criterion(
+            "chlorotic_halo", "Chlorotic halo",
+            "Little chlorotic (yellow) tissue detected",
+            f"{chl:.0%}", "of leaf",
+            supports="inconclusive",
+        ))
+        return
+    share = meas.get("largest_component_share", 0.0)
+    if share <= _M["largest_component_share"]["spot"]:
         supports = "top" if top == SPOT else "second"
         c.append(_criterion(
             "chlorotic_halo", "Chlorotic halo",
-            "Yellow (chlorotic) tissue, typical of spots with halos rather than spreading blight",
+            "Yellow (chlorotic) halos around discrete necrotic spots (spot-like)",
             f"{chl:.0%}", "of leaf",
             supports=supports, supports_class=SPOT,
+        ))
+    elif share >= _M["largest_component_share"]["blight"]:
+        supports = "top" if top == BLIGHT else "second"
+        c.append(_criterion(
+            "chlorotic_halo", "Chlorotic halo",
+            "Yellow (chlorotic) tissue at the edge of a large coalesced dead zone (blight-like)",
+            f"{chl:.0%}", "of leaf",
+            supports=supports, supports_class=BLIGHT,
         ))
     else:
         c.append(_criterion(
             "chlorotic_halo", "Chlorotic halo",
-            "Little chlorotic (yellow) tissue detected",
+            "Chlorotic tissue present but neither clearly spot-ringing nor blight-marginating",
             f"{chl:.0%}", "of leaf",
             supports="inconclusive",
         ))

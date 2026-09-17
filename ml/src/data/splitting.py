@@ -124,24 +124,42 @@ def _split_group_counts(n: int) -> tuple[int, int, int]:
     return (train, val, test)
 
 
-def _nearest_subset(items: list[tuple[int, str]], target: int) -> list[str]:
+def _nearest_subset(items: list[tuple[int, str]], target: int,
+                    natural_of=None, prefer_natural: bool = False) -> list[str]:
     """Return the component ids whose total size best matches `target`.
 
-    Deterministic: components arrive pre-sorted by (size, id); among equally
-    close subsets the one with the larger total wins (favors a fuller split).
-    Component counts are small (< dozen per class), so exhaustive search is fine.
+    Deterministic: components arrive pre-sorted by (size, id). The EMPTY subset
+    is never returned while components exist — otherwise a class whose smallest
+    whole session is coarser than the target silently loses ALL of its test /
+    validation groups to train (the "healthy gets no test/val" bug). Among
+    equally close subsets the larger total wins; when `prefer_natural` is set,
+    ties additionally favor natural-background groups so out-of-distribution
+    (in-situ) plants reach the held-out sets. Component counts are small
+    (< dozzen per class), so exhaustive search is fine.
     """
     n = len(items)
     if n == 0:
         return []
     best_diff: int | None = None
     best_sum = -1
+    best_natural = -1
     best_mask = 0
-    for mask in range(1 << n):
+    for mask in range(1, 1 << n):  # exclude the empty subset
         s = sum(items[i][0] for i in range(n) if (mask >> i) & 1)
         diff = abs(target - s)
-        if best_diff is None or diff < best_diff or (diff == best_diff and s > best_sum):
-            best_diff, best_sum, best_mask = diff, s, mask
+        natural = 0
+        if prefer_natural and natural_of:
+            natural = sum(
+                1 for i in range(n)
+                if (mask >> i) & 1 and natural_of(items[i][1]) == "natural"
+            )
+        if (
+            best_diff is None
+            or diff < best_diff
+            or (diff == best_diff and natural > best_natural)
+            or (diff == best_diff and natural == best_natural and s > best_sum)
+        ):
+            best_diff, best_sum, best_natural, best_mask = diff, s, natural, mask
     return [items[i][1] for i in range(n) if (best_mask >> i) & 1]
 
 
@@ -170,14 +188,23 @@ def create_grouped_splits(rows: list[dict], seed: int = 42, ignore_groups: bool 
         ungrouped = [
             r for r in out if not _identifiers(r)
         ]
+        # Singleton groups (size 1) have no leakage risk — promote them to
+        # ungrouped so the expensive exhaustive subset search is never called
+        # on hundreds of single-image groups (e.g. raw photos with unique
+        # sha256 but no provenance keys).
+        for gid in list(groups):
+            if len(groups[gid]) == 1:
+                ungrouped.extend(groups.pop(gid))
 
     # Group-level split assignment, stratified by the group's dominant class.
-    # Within each class, test/validation selection is additionally stratified by
-    # the group's DOMINANT background_type so the test set keeps the same
-    # background (distribution) mix as the class as a whole — this is what makes
-    # OOD / covariate-shift evaluation meaningful: if a class contains natural-
-    # background (in-situ) groups, a proportional slice lands in test rather than
-    # being drowned out by the white-removed (curated) majority.
+    # Per class, whole groups are assigned to test/validation/train toward
+    # SPLIT_RATIOS (80/10/10): held-out groups are picked closest to 10% of the
+    # class (never the empty pick), the validation target is computed on the
+    # REMAINING pool (no double counting), and natural-background (OOD) groups
+    # are preferred on ties so covariate-shift evaluation has support. Every
+    # class with >=3 sessions is guaranteed at least one whole session in test
+    # AND one in validation — a class must never be unmeasurable just because
+    # its sessions are coarser than 10% (the "healthy 0/0" bug).
     by_class_groups: dict[str, list[str]] = defaultdict(list)
     singleton_class_groups: list[str] = []
     for gid in sorted(groups):
@@ -194,35 +221,68 @@ def create_grouped_splits(rows: list[dict], seed: int = 42, ignore_groups: bool 
             (r.get("background_type") or "unknown") for r in groups[gid]
         ).most_common(1)[0][0]
 
-    # Per class, components are assigned to test/validation/train by SIZE toward
-    # SPLIT_RATIOS (80/10/10, declared in pipeline.json splitRatios) — test and
-    # validation each target 10% of that class's images, as near to the target
-    # as component granularity allows (nearest-subset fit). This keeps per-class
-    # test support balanced even when many training photos share a handful of
-    # large collection sessions, and gives the research target of ~200 test
-    # images at a 2000-image dataset (10% of 2000).
     split_of_group: dict[str, str] = {}
     for cls, gids in by_class_groups.items():
-        by_bg: dict[str, list[tuple[int, str]]] = defaultdict(list)
-        for gid in gids:
-            by_bg[_dominant_bg(gid)].append((len(groups[gid]), gid))
-        for _bg, bg_items in by_bg.items():
-            items = sorted(bg_items)
-            total = sum(s for s, _ in items)
-            if total == 0:
-                continue
-            t_test = round(total * SPLIT_RATIOS["test"])
-            t_val = round(total * SPLIT_RATIOS["validation"])
-            test_ids = set(_nearest_subset(items, t_test))
+        items = sorted((len(groups[gid]), gid) for gid in gids)
+        n_groups = len(items)
+        if n_groups == 0:
+            continue
+        if n_groups >= 3:
+            total_cls = sum(s for s, _ in items)
+            t_test = round(total_cls * SPLIT_RATIOS["test"])
+            test_ids = set(_nearest_subset(
+                items, t_test, natural_of=_dominant_bg, prefer_natural=True))
+            if not test_ids:  # safety: never return a class without a test pick
+                test_ids = {min(items, key=lambda it: it[0])[1]}
+            # If the picked test groups carry no natural (OOD) background but
+            # the class has natural groups, swap the smallest test group for a
+            # similarly-sized natural group so distribution-shift eval has data.
+            if not any(_dominant_bg(gid) == "natural" for gid in test_ids):
+                naturals = [
+                    it for it in items
+                    if it[1] not in test_ids and _dominant_bg(it[1]) == "natural"
+                ]
+                if naturals:
+                    drop = min(test_ids, key=lambda gid: len(groups[gid]))
+                    repl = min(naturals, key=lambda it: abs(it[0] - len(groups[drop])))
+                    test_ids.discard(drop)
+                    test_ids.add(repl[1])
             rest = [it for it in items if it[1] not in test_ids]
-            val_ids = set(_nearest_subset(rest, t_val))
+            t_val = round(sum(s for s, _ in rest) * SPLIT_RATIOS["validation"])
+            val_ids = set(_nearest_subset(
+                rest, t_val, natural_of=_dominant_bg, prefer_natural=True))
+            if not val_ids and rest:  # safety: keep validation measurable
+                val_ids = {min(rest, key=lambda it: it[0])[1]}
             for gid in test_ids:
                 split_of_group[gid] = "test"
             for gid in val_ids:
                 split_of_group[gid] = "validation"
-            for gid in [g for _, g in items]:
-                if gid not in split_of_group:
-                    split_of_group[gid] = "train"
+            for _, gid in items:
+                split_of_group.setdefault(gid, "train")
+        elif n_groups == 2:
+            # two sessions: keep a validation split, no isolated test
+            val_gid = min(items, key=lambda it: it[0])[1]
+            split_of_group[val_gid] = "validation"
+            for _, gid in items:
+                split_of_group.setdefault(gid, "train")
+        else:
+            for _, gid in items:
+                split_of_group[gid] = "train"
+
+    # Global rebalance: if any class ended up with MORE than one held-out group
+    # on a side, return the extra group(s) to train. This nudges totals back
+    # toward 80/10/10 (e.g. datasets with many small sessions) without ever
+    # emptying a class's test/validation side. No-op for the common
+    # one-per-side case.
+    for cls, gids in by_class_groups.items():
+        if len(gids) < 3:
+            continue
+        for side in ("test", "validation"):
+            side_gids = [g for g in gids if split_of_group.get(g) == side]
+            while len(side_gids) > 1:
+                extra = min(side_gids, key=lambda g: len(groups[g]))
+                split_of_group[extra] = "train"
+                side_gids.remove(extra)
 
     for gid in singleton_class_groups:
         split_of_group[gid] = "train"  # unlabeled groups stay in training pool
@@ -232,29 +292,90 @@ def create_grouped_splits(rows: list[dict], seed: int = 42, ignore_groups: bool 
         for row in members:
             row["split"] = s
 
-    # Ungrouped images: stratified random fill to top up ratio deficits.
-    # Natural-background (OOD) rows are prioritized into the test split so the
-    # distribution-shift evaluation isn't starved of in-situ examples when they
-    # carry no provenance grouping keys.
-    current = Counter(r.get("split") for r in out if r.get("split"))
-    total = len(out)
-    deficit = {
-        split: max(0, round(total * ratio) - current.get(split, 0))
-        for split, ratio in SPLIT_RATIOS.items()
-    }
-    order = ["test", "validation", "train"]
-    rng.shuffle(ungrouped)
-    for row in sorted(ungrouped,
-                      key=lambda r: 0 if (r.get("background_type") == "natural") else 1):
-        placed = False
-        for split in order:
-            if deficit[split] > 0:
-                row["split"] = split
-                deficit[split] -= 1
-                placed = True
-                break
-        if not placed:
+    # Ungrouped images: CLASS-STRATIFIED 80/10/10 fill. (The old global shuffle
+    # assigned test/validation first-come-first-served — with natural-background
+    # rows consuming every held-out slot, a class whose rows are all lab-scan
+    # backgrounds (healthy) landed 495/5/0 and became unmeasurable in test.)
+    # Every class is apportioned its OWN 80/10/10 with the same guarantees as
+    # the grouped path (_split_group_counts: >=1 test and >=1 validation when
+    # the class has >=3 rows), so one class can never starve held-out splits.
+    # Within a class, natural-background (OOD) rows are prioritized into test so
+    # distribution-shift evaluation still has support. Unlabeled rows train-only.
+    labeled_ungrouped = [
+        r for r in ungrouped if r.get("class")
+    ]
+    unlabeled_rows = [
+        r for r in ungrouped if not r.get("class")
+    ]
+    by_class_ungrouped: dict[str, list[dict]] = defaultdict(list)
+    for row in labeled_ungrouped:
+        by_class_ungrouped[row["class"]].append(row)
+
+    for cls, cls_rows in by_class_ungrouped.items():
+        n = len(cls_rows)
+        n_train, n_val, n_test = _split_group_counts(n)
+        rng.shuffle(cls_rows)
+        cls_rows = sorted(
+            cls_rows,
+            key=lambda r: 0 if (r.get("background_type") == "natural") else 1,
+        )
+        for row in cls_rows[:n_test]:
+            row["split"] = "test"
+        for row in cls_rows[n_test:n_test + n_val]:
+            row["split"] = "validation"
+        for row in cls_rows[n_test + n_val:]:
             row["split"] = "train"
+    for row in unlabeled_rows:
+        row["split"] = "train"
+
+    # Global rebalance toward the declared 80/10/10 partition: cross-class
+    # rounding residue can leave a split a row short even when every class hit
+    # its target. Correct it without EVER draining a class's last held-out row,
+    # so the per-class measurability guarantees survive the rebalance. Unlabeled
+    # rows never move out of train.
+    total = len(out)
+    target = {split: round(total * ratio) for split, ratio in SPLIT_RATIOS.items()}
+    current = Counter(r.get("split") for r in out if r.get("split"))
+    class_side = Counter(
+        (r.get("class") or "unlabeled", r["split"])
+        for r in out if r.get("split")
+    )
+
+    def _move(row: dict, to: str) -> None:
+        frm = row["split"]
+        cls = row.get("class") or "unlabeled"
+        class_side[(cls, frm)] -= 1
+        class_side[(cls, to)] += 1
+        current[frm] -= 1
+        current[to] += 1
+        row["split"] = to
+
+    for side in ("test", "validation"):
+        while current[side] > target[side]:
+            surplus = next(
+                (r for r in out
+                 if r.get("split") == side
+                 and r.get("class")
+                 and class_side[(r.get("class"), side)] > 1),
+                None,
+            )
+            if surplus is None:
+                break
+            _move(surplus, "train")
+        while current[side] < target[side]:
+            pool = [
+                r for r in out
+                if r.get("split") == "train" and r.get("class")
+            ]
+            if not pool:
+                break
+            rng.shuffle(pool)
+            uncovered = next(
+                (r for r in pool
+                 if class_side[(r.get("class"), side)] == 0),
+                None,
+            )
+            _move(uncovered if uncovered is not None else pool[0], side)
 
     # Audit: how many groups were forged purely because identical-content images
     # (same sha256) were uploaded under different provenance keys.
@@ -276,6 +397,33 @@ def create_grouped_splits(rows: list[dict], seed: int = 42, ignore_groups: bool 
         bg = row.get("background_type") or "unknown"
         bg_dist[row["split"]][bg] += 1
 
+    # Audit: per-class counts + drift vs the declared 80/10/10 target, so every
+    # run reports exactly how far the grouping granularity forced the split off
+    # target and flags classes that ended up unmeasurable in a held-out split.
+    final_counts = dict(Counter(r["split"] for r in out))
+    per_class_counts: dict[str, dict[str, int]] = defaultdict(Counter)
+    for row in out:
+        if row.get("class") and row.get("split"):
+            per_class_counts[row["class"]][row["split"]] += 1
+    per_class_counts = {k: dict(v) for k, v in sorted(per_class_counts.items())}
+    classes_missing_test = sorted(
+        c for c, s in per_class_counts.items() if s.get("test", 0) == 0
+    )
+    classes_missing_val = sorted(
+        c for c, s in per_class_counts.items() if s.get("validation", 0) == 0
+    )
+    test_bg = {k: int(v) for k, v in bg_dist.get("test", {}).items()}
+    test_natural_count = int(test_bg.get("natural", 0))
+    test_all_white_removed = bool(
+        test_bg and test_natural_count == 0
+        and test_bg.get("white_removed", 0) == sum(test_bg.values())
+    )
+    drift = {}
+    for split, ratio in SPLIT_RATIOS.items():
+        target = round(len(out) * ratio)
+        actual = final_counts.get(split, 0)
+        drift[split] = {"target": target, "actual": actual, "delta": actual - target}
+
     return {
         "rows": out,
         "audit": {
@@ -287,8 +435,14 @@ def create_grouped_splits(rows: list[dict], seed: int = 42, ignore_groups: bool 
                 "image_level_random_fallback_no_grouping_metadata_available"
             ),
             "seed": seed,
-            "final_counts": dict(Counter(r["split"] for r in out)),
+            "final_counts": final_counts,
             "background_dist": {s: dict(c) for s, c in bg_dist.items()},
+            "per_class_counts": per_class_counts,
+            "classes_missing_test": classes_missing_test,
+            "classes_missing_val": classes_missing_val,
+            "test_natural_count": test_natural_count,
+            "test_all_white_removed": test_all_white_removed,
+            "drift": drift,
         },
     }
 

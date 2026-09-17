@@ -2,6 +2,7 @@
 import { Router } from "express";
 import { PrismaClient } from "@prisma/client";
 
+import { authorize } from "../auth/middleware.js";
 import {
   validateFeedbackReview, validateLifecycleTransition, canActivate,
   ReviewAction,
@@ -21,7 +22,7 @@ async function sysAudit(a: {
 /* ================= FEEDBACK REVIEW QUEUE ================= */
 
 // GET /api/tools/feedback?status=&verdict=&modelVersion=
-router.get("/feedback", async (req, res) => {
+router.get("/feedback", authorize("feedback_review"), async (req, res) => {
   const { status, verdict, modelVersion } = req.query;
   const feedbacks = await prisma.feedback.findMany({
     where: {
@@ -73,10 +74,12 @@ router.get("/feedback", async (req, res) => {
  * Body: { actor, actorRole, action: start_review|verify|verify_corrected|
  *                mark_uncertain|reject, verifiedClass?, notes? }
  */
-router.patch("/feedback/:id/review", async (req, res) => {
-  const { actor, actorRole, action, verifiedClass, notes } = req.body ?? {};
-  if (!actor || !action)
-    return res.status(400).json({ error: "actor and action are required" });
+router.patch("/feedback/:id/review", authorize("feedback_review"), async (req, res) => {
+  const { action, verifiedClass, notes } = req.body ?? {};
+  if (!action)
+    return res.status(400).json({ error: "action is required" });
+  const actor = req.user!.name;
+  const reviewerRole = "expert";
 
   const fb = await prisma.feedback.findUnique({
     where: { id: req.params.id },
@@ -93,7 +96,7 @@ router.patch("/feedback/:id/review", async (req, res) => {
     const r = validateFeedbackReview({
       action: action as ReviewAction,
       currentStatus: fb.reviewStatus as never,
-      reviewerRole: String(actorRole ?? "expert"),
+      reviewerRole,
       verifiedClass: verifiedClass ?? fb.verifiedClass ?? fb.correctedClass ?? undefined,
     });
     newStatus = r.newStatus;
@@ -136,7 +139,7 @@ router.patch("/feedback/:id/review", async (req, res) => {
         previousLabel: existing?.classKey ?? null,
         newLabel: finalClass,
         previousStatus: null, newStatus: null,
-        actor, actorRole: String(actorRole ?? "expert"),
+        actor, actorRole: reviewerRole,
         reason: `Verified from application feedback ${fb.id} (Phase 9.1). Candidate training data only.`,
       },
     });
@@ -154,7 +157,7 @@ router.patch("/feedback/:id/review", async (req, res) => {
 /* ================= CANDIDATE TRAINING DATA ================= */
 
 // GET /api/tools/candidates — images with VERIFIED labels from feedback review
-router.get("/candidates", async (_req, res) => {
+router.get("/candidates", authorize("feedback_review"), async (_req, res) => {
   const items = await prisma.feedback.findMany({
     where: { reviewStatus: "VERIFIED" },
     include: {
@@ -187,10 +190,11 @@ router.get("/candidates", async (_req, res) => {
 
 /* ================= MODEL LIFECYCLE ================= */
 
-// PATCH /api/tools/models/:id/lifecycle { to, actor, reason }
-router.patch("/models/:id/lifecycle", async (req, res) => {
-  const { to, actor, reason } = req.body ?? {};
-  if (!to || !actor) return res.status(400).json({ error: "to and actor are required" });
+// PATCH /api/tools/models/:id/lifecycle { to, reason }
+router.patch("/models/:id/lifecycle", authorize("model_admin"), async (req, res) => {
+  const { to, reason } = req.body ?? {};
+  if (!to) return res.status(400).json({ error: "to is required" });
+  const actor = req.user!.name;
 
   const m = await prisma.modelVersion.findUnique({ where: { id: req.params.id } });
   if (!m) return res.status(404).json({ error: "ModelVersion not found" });
@@ -228,7 +232,7 @@ router.patch("/models/:id/lifecycle", async (req, res) => {
 
 /* ================= MONITORING SUMMARY ================= */
 
-router.get("/monitoring/summary", async (_req, res) => {
+router.get("/monitoring/summary", authorize("monitoring"), async (_req, res) => {
   const preds = await prisma.prediction.findMany({
     where: { isPlaceholder: false },
     include: { feedback: true, modelVersion: { select: { version: true, lifecycleStatus: true } } },

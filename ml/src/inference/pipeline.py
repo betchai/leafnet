@@ -71,6 +71,7 @@ def _manifest_split_counts(manifest_path: Path) -> dict:
 def _run_job(job: dict, params: dict):
     try:
         api_base = params["apiBase"]
+        auth_token = params.get("authToken", "")
         seed = json.loads((ML_ROOT / "src/config/training.json").read_text())["experimentDefaults"]["randomSeed"]
 
         # ---- Step 9: exploration report ----
@@ -78,8 +79,8 @@ def _run_job(job: dict, params: dict):
         _log(job, "Step 9: refreshing exploration reports")
         import subprocess
         r = subprocess.run(
-            [str(ML_ROOT / ".venv/bin/python"), str(ML_ROOT / "scripts/explore_dataset.py"), "--api", api_base],
-            capture_output=True, text=True, cwd=ML_ROOT)
+            [str(ML_ROOT / ".venv/bin/python"), str(ML_ROOT / "scripts/explore_dataset.py"), "--api", api_base, "--token", auth_token],
+            capture_output=True, text=True, cwd=ML_ROOT, env={**os.environ})
         job["steps"]["exploration"] = {
             "status": "done" if r.returncode == 0 else "failed",
             "output_tail": r.stdout.strip().splitlines()[-8:] if r.stdout else [],
@@ -89,20 +90,31 @@ def _run_job(job: dict, params: dict):
             raise RuntimeError("exploration script failed")
 
         # ---- Step 10: prepare + preflight + train each experiment ----
-        manifest_path, audit = prepare_dataset(api_base, params["datasetId"], seed=seed)
+        # Re-run detection: when this version label already has artifacts, force
+        # a REGENERATION of the prepared manifest so the current splitter logic
+        # applies (cached manifests would silently reuse yesterday's split).
+        rerun = any((ML_ROOT / "models").glob(f"{params['versionLabel']}_*"))
+        if rerun:
+            _log(job, "re-run detected: forcing prepared-manifest regeneration")
+        manifest_path, audit = prepare_dataset(
+            api_base, params["datasetId"], seed=seed, auth_token=auth_token,
+            force=rerun)
+        if audit.get("reused_existing"):
+            _log(job, "prepared manifest reused from cache")
         ok, preflight = run_preflight(manifest_path, load_class_mapping())
         if not ok:
             # Explain exactly WHY grouped splitting was rejected (usually: too
             # few collection sessions per class to guarantee val/test groups),
             # then fall back to a documented PILOT split. Group keys are still
-            # persisted in the manifest — they are never lost.
+            # persisted in the manifest — only ignored for assignment.
             reasons = " ".join(preflight.get("problems", [])) or "preflight failed"
             counts = _manifest_split_counts(manifest_path)
             _log(job, "grouped split rejected -> falling back to PILOT split")
             _log(job, f"grouped split reason: {reasons}")
             _log(job, f"grouped split counts: {counts}")
             manifest_path, audit = prepare_dataset(api_base, params["datasetId"],
-                                                   seed=seed, force=True, pilot=True)
+                                                   seed=seed, force=True, pilot=True,
+                                                   auth_token=auth_token)
             ok, preflight = run_preflight(manifest_path, load_class_mapping())
             if not ok:
                 raise RuntimeError("preflight failed even in pilot mode: "
@@ -168,6 +180,7 @@ def _run_job(job: dict, params: dict):
                 freeze_backbone=True,
                 fine_tune_layers=exp.get("fineTuneLayers", 0),
                 epochs=exp.get("epochs"),
+                class_weights=exp.get("classWeights") or None,
                 on_epoch=on_epoch,
             )
             job["steps"][f"train_{exp['id']}"] = {"status": "done", "best_epoch": meta["best_epoch"]}
@@ -192,8 +205,13 @@ def _run_job(job: dict, params: dict):
             }
             _write_model_card(model_dir, params["versionLabel"], exp_id, meta, result)
             job["steps"].setdefault(f"model_card_{model_dir.name}", {"status": "done"})
-            # Auto-register candidate in the database (never sets isActive)
+            # Auto-register candidate in the database (never sets isActive).
+            # The route is gated by requireServiceToken, so we send the service
+            # token (NOT the caller's session token — that bypasses nothing).
             import urllib.request
+            svc_token = os.environ.get("SERVICE_TOKEN", "")
+            if not svc_token:
+                _log(job, "WARNING: SERVICE_TOKEN not set — register will 401")
             reg = urllib.request.Request(
                 f"{params['apiBase']}/api/tools/models/register",
                 data=json.dumps({
@@ -208,7 +226,10 @@ def _run_job(job: dict, params: dict):
                     "acceptanceVerdict": (result.get("acceptance") or {}).get("verdict"),
                     "confusionMatrix": result["confusion_matrix"],
                 }).encode(),
-                headers={"Content-Type": "application/json"}, method="POST")
+                headers={
+                    "Content-Type": "application/json",
+                    "X-Service-Token": svc_token,
+                }, method="POST")
             try:
                 with urllib.request.urlopen(reg, timeout=15) as resp:
                     job["steps"][f"register_{model_dir.name}"] = {

@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { PrismaClient } from "@prisma/client";
+import { authorize } from "../auth/middleware.js";
 import { canActivate } from "../domain/lifecycle.js";
 
 const prisma = new PrismaClient();
@@ -8,7 +9,7 @@ const router = Router();
 const ml = () => process.env.ML_SERVICE_URL ?? "";
 
 // GET /api/models — list model versions. Empty until a model is trained.
-router.get("/", async (_req, res) => {
+router.get("/", authorize("view_models"), async (_req, res) => {
   const models = await prisma.modelVersion.findMany({
     orderBy: { createdAt: "desc" },
   });
@@ -28,7 +29,7 @@ router.get("/", async (_req, res) => {
  * improvement opportunities) and the test-split composition from the analytics
  * engine, so a reviewer can see HOW the numbers were computed and on WHAT data.
  */
-router.get("/:id/detail", async (req, res) => {
+router.get("/:id/detail", authorize("view_models"), async (req, res) => {
   const m = await prisma.modelVersion.findUnique({
     where: { id: req.params.id },
     include: { dataset: true },
@@ -82,9 +83,9 @@ router.get("/:id/detail", async (req, res) => {
  * success: DB row becomes active (others deactivated) AND the ML service is
  * switched to serve it (active.json + in-process reload), fully audited.
  */
-router.post("/:id/activate", async (req, res) => {
-  const { actor, reason } = req.body ?? {};
-  if (!actor) return res.status(400).json({ error: "actor is required (expert-only action)" });
+router.post("/:id/activate", authorize("model_admin"), async (req, res) => {
+  const { reason } = req.body ?? {};
+  const actor = req.user!.name;
 
   const m = await prisma.modelVersion.findUnique({ where: { id: req.params.id } });
   if (!m) return res.status(404).json({ error: "Model version not found" });

@@ -19,6 +19,40 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+/// Application user. Roles are fixed: FARMER (analyzer only),
+/// RESEARCHER (acquisition + preliminary labeling + bulk ingest),
+/// EXPERT (everything incl. review, model/dataset governance, user admin).
+model User {
+  id           String     @id @default(cuid())
+  name         String
+  email        String     @unique
+  passwordHash String // scrypt "salt:hash" — never exposed by any API
+  role         Role       @default(FARMER)
+  status       UserStatus @default(ACTIVE)
+  lastLoginAt  DateTime?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  sessions UserSession[]
+
+  @@map("users")
+}
+
+/// Opaque bearer session tokens (SHA-256 hashes stored; raw token only shown
+/// once at login). Revocable and auditable.
+model UserSession {
+  id         String   @id @default(cuid())
+  tokenHash  String   @unique
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+  expiresAt  DateTime
+  lastUsedAt DateTime?
+
+  @@index([userId])
+  @@map("user_sessions")
+}
+
 model Dataset {
   id          String        @id @default(cuid())
   name        String
@@ -315,4 +349,15 @@ enum AnnotationStage {
   PRELIMINARY
   EXPERT_REVIEW
   FINAL_VERIFIED
+}
+
+enum Role {
+  FARMER
+  RESEARCHER
+  EXPERT
+}
+
+enum UserStatus {
+  ACTIVE
+  DISABLED
 }

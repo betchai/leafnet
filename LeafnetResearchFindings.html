@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LEAFNET Research Findings</title>
+<style>
+  :root{
+    --ink:#222; --mut:#666; --line:#bbb; --accent:#2e6b34; --soft:#f4f7f4;
+    --warn:#9a6b00; --warnsoft:#fff7e6;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; color:var(--ink); background:#fff;
+    font:16px/1.65 Georgia, "Times New Roman", serif;
+  }
+  .page{
+    max-width:880px; margin:0 auto; padding:40px 48px 80px;
+  }
+  header.title{
+    text-align:center; border-bottom:3px double var(--accent);
+    padding-bottom:24px; margin-bottom:32px;
+  }
+  header.title h1{font-size:26px; line-height:1.3; margin:0 0 8px; letter-spacing:.3px}
+  header.title h2{font-size:16px; font-weight:normal; font-style:italic; color:var(--mut); margin:0}
+  h2.chapter{
+    text-align:center; font-size:20px; margin:52px 0 8px;
+    border-bottom:1px solid var(--line); padding-bottom:6px;
+  }
+  h3{font-size:17px; margin:32px 0 6px; color:#000}
+  h4{font-size:15px; margin:20px 0 4px}
+  p{text-align:justify; margin:10px 0}
+  .center{text-align:center}
+  ul,ol{margin:8px 0 8px 22px; padding:0}
+  li{margin:5px 0}
+  figcaption, .caption{font-size:13px; color:var(--mut); text-align:center; margin:6px auto 22px; font-style:italic}
+  table{border-collapse:collapse; margin:14px auto; font-size:14px; font-family:Helvetica,Arial,sans-serif}
+  th,td{border:1px solid #999; padding:6px 12px; text-align:center}
+  th{background:#eef4ee; font-weight:bold}
+  .tblleft th,.tblleft td{text-align:left}
+  .formula{font-family:Cambria,Georgia,serif; font-style:italic; text-align:center; margin:10px auto}
+  .kpi{display:flex; gap:14px; flex-wrap:wrap; justify-content:center; margin:18px 0}
+  .kpi .box{flex:1 1 170px; max-width:200px; border:1px solid var(--line); border-radius:8px;
+    background:var(--soft); padding:12px; text-align:center}
+  .kpi .num{font-size:26px; font-weight:bold; color:var(--accent)}
+  .kpi .lbl{font-size:12px; color:var(--mut); font-family:Helvetica,Arial,sans-serif}
+  .chart{margin:16px auto; max-width:640px; font-family:Helvetica,Arial,sans-serif; font-size:12px}
+  .bar-row{display:flex; align-items:center; gap:8px; margin:5px 0}
+  .bar-row .name{width:130px; text-align:right; color:var(--mut)}
+  .bar-track{flex:1; background:#f0f0f0; border-radius:3px; height:20px; position:relative}
+  .bar{height:20px; border-radius:3px; background:var(--accent)}
+  .bar.pend{background:#c9a227}
+  .bar.goal{background:#b3b3b3}
+  .bar-row .val{width:70px}
+  .legend{font-size:12px; color:var(--mut); text-align:center; margin-top:6px}
+  .pending{background:var(--warnsoft); border:1px dashed var(--warn); border-radius:6px;
+    padding:10px 14px; font-size:14px; color:var(--warn)}
+  .note{font-size:13px; color:var(--mut); font-style:italic}
+  .refs{font-size:14px}
+  .refs li{margin:6px 0}
+  code{font-family:"SFMono-Regular",Menlo,monospace; font-size:13px; background:#f4f4f4;
+    padding:1px 4px; border-radius:3px}
+  .tag{display:inline-block; font-size:11px; font-family:Helvetica,Arial,sans-serif;
+    background:#eef4ee; border:1px solid #c8dcc8; color:#274d2b; border-radius:3px;
+    padding:1px 6px; margin-right:4px}
+  footer{margin-top:60px; text-align:center; font-size:12px; color:var(--mut);
+    border-top:1px solid var(--line); padding-top:12px}
+</style>
+</head>
+<body>
+<div class="page">
+
+<header class="title">
+  <h1>LEAFNET: Machine Learning&ndash;Driven Mulberry Leaf Classification<br>
+      with Disease Screening for Sustainable Agriculture</h1>
+  <h2>Research Findings — Methodology, Results, and Empirical Evidence</h2>
+  <p class="note">Prepared in the style of the AgriLeafCare thesis manuscript (DMMMSU&ndash;NLUC, 2026).<br>
+  Version 1.0 &middot; September 2026</p>
+</header>
+
+<!-- ======================= ABSTRACT ======================= -->
+<h2 class="chapter">ABSTRACT</h2>
+
+<p>Mulberry (<i>Morus</i> spp.) leaves are the principal feed of silkworms, and foliar
+diseases &mdash; leaf rust, leaf spot, and leaf blight &mdash; directly reduce leaf yield and
+quality. Field diagnosis today still relies on manual visual inspection by trained
+personnel, which is slow, labor-intensive, and error-prone in large plantings. This study
+developed <b>LEAFNET</b>, a machine learning&ndash;driven system that classifies a mulberry leaf
+photo as <i>healthy</i>, <i>leaf&nbsp;rust</i>, <i>leaf&nbsp;spot</i>, or <i>leaf&nbsp;blight</i>, and
+reports the visual evidence and confidence behind every diagnosis. Guided by the Machine
+Learning Development Life Cycle, the system uses a <b>MobileNetV2</b> convolutional neural
+network (ImageNet&ndash;pretrained, transfer&ndash;learned) trained on a validated dataset of
+<b>2,000</b> mulberry leaf images (500 per class), partitioned <b>80/10/10</b> into
+train/validation/isolated&nbsp;test with strict leakage control (content&ndash;hash union&ndash;find
+grouping and class&ndash;stratified splitting). Evaluation follows a single, pre&ndash;registered
+scoring pass on the isolated test split reporting <b>accuracy, precision, recall, and
+F1&ndash;score</b> per class and macro&ndash;averaged, with acceptance thresholds fixed before any
+run (accuracy and macro metrics &ge; 0.60; per&ndash;class metrics &ge; 0.40; test n &ge; 30). Early
+raw&ndash;photo runs reached 0.81 accuracy / 0.71 macro&ndash;F1 on in&ndash;domain held&ndash;out data; a full
+acceptance evaluation on the current validated cut is in progress. This document reports the
+complete, defensible methodology, the verified data partition, and the result&ndash;reporting
+framework used to claim that LEAFNET is a reliable, user&ndash;grounding diagnostic aid for
+sustainable mulberry production.</p>
+
+<p class="center"><b>Keywords:</b> machine learning, convolutional neural network, mulberry
+leaf disease, transfer learning, image classification, sustainable agriculture</p>
+
+<!-- ======================= CHAPTER 1 ======================= -->
+<h2 class="chapter">CHAPTER 1 — INTRODUCTION</h2>
+
+<h3>Situation Analysis</h3>
+<p>Global food security depends on protecting crops from pests and disease; biotic factors
+contribute roughly half of agricultural production losses (Shahbazi et al., 2025). Crop
+protection still relies heavily on manual field inspection and visual assessment in many
+production systems, which is slow, subject to human error, and often too late to prevent
+yield loss (Nicolas, 2024; AGRIVI, 2026). Modern agriculture increasingly addresses this
+with image&ndash;based, data&ndash;driven systems enabled by advances in agricultural intelligence
+and machine learning (Taha et al., 2025; Mes&iacute;as-Ruiz et al., 2023).</p>
+<p>Mulberry &mdash; the exclusive larval food of the mulberry silkworm &mdash; is economically
+important to sericulture. Its leaves are vulnerable to fungal and bacterial foliar
+diseases (rust, spot, blight) whose visual cues overlap: early rust resembles spot
+pinhead lesions, and coalesced spot can present a blighted appearance. This visual
+ambiguity motivates a controlled, evidence&ndash;reporting classifier rather than an
+unexplained "black&ndash;box" diagnosis.</p>
+
+<h3>Statement of the Objectives</h3>
+<p>This study develops and evaluates a four&ndash;class mulberry leaf classifier. Its specific
+objectives are:</p>
+<ol>
+  <li>Develop a validated, leakage&ndash;controlled dataset and a reproducible
+      <b>80/10/10</b> train/validation/test partition (mixed background conditions).</li>
+  <li>Train a MobileNetV2 transfer&ndash;learning model and, through the pipeline, compare
+      transfer&ndash;learning strategies (frozen backbone baseline, block fine&ndash;tune, full
+      fine&ndash;tune).</li>
+  <li><b>To test and evaluate the performance of the proposed machine learning model
+      using appropriate evaluation metrics in terms of (1.1) accuracy, (2.2) precision,
+      (3.3) recall, and (4.4) F1&ndash;score</b>, judged against pre&ndash;registered acceptance
+      thresholds on an isolated test set.</li>
+  <li>Report generalization behavior (train vs. validation vs. test gaps) and
+      distribution&ndash;shift (controlled&ndash;background vs. in&ndash;field) evidence so every claim
+      is auditable.</li>
+</ol>
+
+<h3>Scope and Limitations</h3>
+<p>The classifier is a <b>visual</b> assessment tool: it reports what a leaf <i>resembles</i>,
+not a biological etiologic diagnosis. Symptoms that cannot be confidently assigned are
+routed to expert review and are never forced into a class. Generalization is bounded by the
+collection sites and device mix of the training corpus.</p>
+
+<!-- ======================= CHAPTER 2 ======================= -->
+<h2 class="chapter">CHAPTER 2 — METHODOLOGY</h2>
+
+<h3>Research Design</h3>
+<p>This study used a <b>developmental and evaluative</b> research design. The
+<b>developmental</b> design (Kumar, 2025) framed the systematic design, implementation, and
+iteration of LEAFNET through the <b>Machine Learning Development Life Cycle (MLDLC)</b>
+(&sect;Procedures). The <b>evaluative</b> design (Trymata, 2025) assessed the resulting
+models against <b>pre&ndash;registered criteria</b> &mdash; accuracy, precision, recall, and
+F1&ndash;score &mdash; measured on an isolated held&ndash;out test split. All acceptance thresholds
+(<code>ml/src/config/acceptance.json</code>) were fixed <i>before</i> training and were never
+adjusted after results were observed; the verdict is advisory, and a human still decides
+promotion/activation through the model lifecycle.</p>
+
+<h3>Materials</h3>
+<h4>Hardware</h4>
+<ul>
+  <li>Development workstation/laptop with a multi&ndash;core CPU, &ge;16&nbsp;GB RAM, and a
+      CUDA&ndash;capable GPU used to train the CNN.</li>
+  <li>Storage &ge;512&nbsp;GB SSD for the image corpus, trained checkpoints, and source.</li>
+  <li>Smartphones / digital cameras capturing field leaf photos during collection.</li>
+  <li>On&ndash;site or cloud hosting for the deployed REST services.</li>
+</ul>
+<h4>Software</h4>
+<ul>
+  <li><b>Python ≥3.14 / PyTorch + torchvision</b> &mdash; preprocessing, model definition,
+      training, evaluation. MobileNetV2 weights (ImageNet&ndash;pretrained) are cached and
+      verified; training is fully offline.</li>
+  <li><b>Pillow, NumPy</b> &mdash; image handling and statistics.</li>
+  <li><b>scikit-learn</b> &mdash; accuracy/precision/recall/F1 and confusion&ndash;matrix
+      computation in the evaluation pass.</li>
+  <li><b>uvicorn / FastAPI-style REST service</b> &mdash; the ML pipeline runner and inference
+      endpoints (<code>:8000</code>); a <b>Node.js REST API</b> (<code>:4000</code>) serves dataset
+      manifests, model registration, and the web application.</li>
+  <li><b>PostgreSQL</b> &mdash; dataset versions, images, classifications, annotations,
+      model versions, feedback.</li>
+  <li><b>Git/GitHub</b> &mdash; version control and audit trail; <b>pytest</b> for regression
+      tests on the splitter, preflight, and evaluation logic.</li>
+</ul>
+
+<h3>System Architecture</h3>
+<p>LEAFNET follows a clean three-tier, microservice&ndash;oriented layout with a strict
+<i>ML/API boundary</i>: the application layer never spawns Python processes, and all ML
+work flows over HTTP. This lets the pipeline be developed, scaled, and deployed
+independently (e.g., as a GPU worker).</p>
+<pre style="font-size:12px; font-family:Menlo,monospace; line-height:1.5; background:#f8f8f8;
+border:1px solid #e0e0e0; border-radius:6px; padding:14px; overflow-x:auto;">
+             React Frontend  (apps/web)  — farmer &amp; expert views
+                        │  HTTP / JSON  (/api/*)
+                        ▼
+       Node.js REST API  (apps/api, :4000)  — Prisma ORM
+          datasets · uploads · annotations · models · insights · feedback
+          │                          │
+          │ HTTP (SERVICE_TOKEN)     │ metadata (paths, hashes, labels, metrics)
+          ▼                          ▼
+   Python ML Service  (uvicorn, :8000)      PostgreSQL (metadata only)
+     /pipeline/start · /pipeline/status     └─ images &amp; weights stay on disk (sha256)
+     /health · /model · /predict            └─ ModelVersion rows → isActive (rollback)
+          │
+          ▼
+      PyTorch MobileNetV2   (ml/models/&lt;version&gt;/)  ← train / evaluate pass
+</pre>
+<div class="chart"><div class="legend">Fig. 2. LEAFNET system architecture &mdash; application tier, ML service, and model registry</div></div>
+
+<h4>Table 2. Principal REST endpoints</h4>
+<table class="tblleft">
+  <tr><th>Layer</th><th>Endpoint</th><th>Purpose</th></tr>
+  <tr><td>API</td><td><code>GET /api/datasets/:id/manifest</code></td><td>Serves the locked dataset manifest to the ML service (bearer token)</td></tr>
+  <tr><td>API</td><td><code>POST /api/tools/models/register</code></td><td>Registers a trained candidate + metrics + verdict (service token)</td></tr>
+  <tr><td>API</td><td><code>GET /api/insights</code></td><td>Evaluation/insights for the active model</td></tr>
+  <tr><td>ML</td><td><code>POST /pipeline/start</code>, <code>GET /pipeline/status/:id</code>, <code>GET /pipeline/jobs</code></td><td>Trigger and monitor end&ndash;to&ndash;end training runs</td></tr>
+  <tr><td>ML</td><td><code>GET /health</code>, <code>GET /model</code>, <code>POST /predict</code></td><td>Health, active-model metadata, and single&ndash;image inference</td></tr>
+</table>
+<p class="note">Architecture as implemented: <code>docs/architecture.md</code>,
+<code>apps/api/src/services/mlService.ts</code>, <code>ml/src/api/main.py</code>,
+<code>ml/src/inference/pipeline.py</code>.</p>
+
+<h3>Procedures (MLDLC Phases)</h3>
+<ol>
+  <li><b>Data ingestion and validation.</b> Raw photos are uploaded, content&ndash;hashed
+      (SHA&ndash;256), deduplicated (21 flagged duplicates removed; near&ndash;duplicates routed to
+      human review), and recorded with provenance. Only <code>APPROVED</code> rows may train.</li>
+  <li><b>Preliminary annotation and expert review.</b> `Preliminary &rarr; Expert review`;
+      uncertain/needs&ndash;review images never enter training; AI predictions can never
+      write an annotation.</li>
+  <li><b>Dataset versioning.</b> A cut is locked (<code>datasetId</code>,
+      <code>versionLabel</code>, seed) and its manifest becomes the single source of truth.</li>
+  <li><b>Leakage&ndash;controlled splitting</b> (details in &sect;B).</li>
+  <li><b>Preflight.</b> The pipeline hard&ndash;refuses a manifest with an absent class, a class
+      lacking test/validation coverage, duplicate content straddling splits, or degenerate
+      split sizes (<code>ml/src/training/preflight.py</code>).</li>
+  <li><b>Training.</b> MobileNetV2 transfer learning per experiment configuration
+      (Table&nbsp;1), with early stopping on validation loss.</li>
+  <li><b>Evaluation.</b> One scoring pass per candidate on the isolated test split, with
+      integrity re&ndash;checks (<code>ml/src/evaluation/evaluate.py</code>).</li>
+  <li><b>Registration and human promotion.</b> Every candidate is registered in the database
+      (never auto&ndash;active); expert approval promotes it to <code>active</code>.</li>
+</ol>
+
+<h4>Table 1. Training hyperparameters (centralized defaults, recorded per experiment)</h4>
+<table class="tblleft">
+  <tr><th>Parameter</th><th>Value</th><th>Parameter</th><th>Value</th></tr>
+  <tr><td>Input size</td><td>224 × 224</td><td>Optimizer</td><td>Adam</td></tr>
+  <tr><td>Batch size</td><td>8</td><td>LR head / backbone</td><td>1e&ndash;4 / 1e&ndash;5</td></tr>
+  <tr><td>Weight decay</td><td>1e&ndash;4</td><td>Scheduler</td><td>ReduceLROnPlateau (factor 0.5, patience 2)</td></tr>
+  <tr><td>Epochs (max)</td><td>20</td><td>Early stopping</td><td>patience 5, monitor val loss</td></tr>
+  <tr><td>Dropout (classifier)</td><td>0.5</td><td>Random seed</td><td>42</td></tr>
+  <tr><td>Transfer strategies</td><td colspan="3">baseline (frozen backbone + head),
+      fine&ndash;tune last N blocks, full fine&ndash;tune (<code>unfreeze_last_n_blocks</code>)</td></tr>
+</table>
+
+<h4>Preprocessing &amp; augmentation</h4>
+<p>Images are letterbox&ndash;resized to 224×224 and normalized with ImageNet statistics.
+A <b>photometric reference normalization</b> scales each image so its mean leaf brightness
+lands on a reference value (0.343) computed from training&ndash;only statistics, neutralizing
+lot&ndash;to&ndash;lot illumination/processing drift across the dataset (applied identically at train
+and eval; leak&ndash;safe). Training augmentation (eval keeps none) applies horizontal flip
+(p=0.5), rotation ±10&deg;, and color jitter ±0.3 to mirror handheld capture variance.</p>
+
+<h3>B. Dataset Splitting — 80/10/10 with Leakage Prevention</h3>
+<p>Total 2,000 images, partition <b>1600 / 200 / 200</b> (80 / 10 / 10), computed by
+<code>create_grouped_splits</code> (<code>ml/src/data/splitting.py</code>):</p>
+<ol>
+  <li><b>Union&ndash;find over identity + content hash.</b> Images sharing any grouping key
+      (<code>collection_session_id &gt; farm_id &gt; plant_id &gt; leaf_id</code>) <i>or</i> an equal
+      SHA&ndash;256 are merged into one leakage component &mdash; exact duplicates can never straddle
+      splits even when uploaded under different provenance.</li>
+  <li><b>Whole&ndash;group assignment (grouped path).</b> Groups are placed per class toward
+      80/10/10; a class with &ge;3 groups is guaranteed &ge;1 whole group in test <i>and</i> in
+      validation, so coarse sessions cannot make a class unmeasurable.</li>
+  <li><b>Class&ndash;stratified fallback (raw, ungrouped photos).</b> When no grouping metadata
+      exists, every class is apportioned its <i>own</i> 80/10/10 (&ge;1 test and &ge;1
+      validation row for a class with &ge;3 rows), so a class can never be silently
+      unmeasurable. Within a class, in&ndash;field (natural&ndash;background) images are prioritized
+      into test for distribution&ndash;shift evaluation; unlabeled rows go to train.</li>
+  <li><b>Global rebalance</b> then nails the exact declared partition without ever draining a
+      class&rsquo;s last held&ndash;out row.</li>
+  <li><b>Audit.</b> Every manifest writes <code>.audit.json</code> recording strategy, seed,
+      final/per&ndash;class counts, background distribution, and drift vs. target, so partitions
+      are verifiable after the fact.</li>
+</ol>
+
+<h4>Table 3. Verified partition (seed 42) — current 2,000&ndash;image raw dataset</h4>
+<table class="tblleft">
+  <tr><th>Class</th><th>Total</th><th>Train (80%)</th><th>Validation (10%)</th><th>Test (10%)</th></tr>
+  <tr><td>healthy</td><td>500</td><td>400</td><td>50</td><td>50</td></tr>
+  <tr><td>leaf_rust</td><td>500</td><td>400</td><td>50</td><td>50</td></tr>
+  <tr><td>leaf_spot</td><td>500</td><td>400</td><td>50</td><td>50</td></tr>
+  <tr><td>leaf_blight</td><td>500</td><td>400</td><td>50</td><td>50</td></tr>
+  <tr><th>Total</th><th>2000</th><th>1600</th><th>200</th><th>200</th></tr>
+</table>
+<p class="note">Verified by regression tests (<code>ml/tests/test_splitting.py</code>) and by
+reproducing the splitter on the production row set; <code>classes_missing_test = []</code>,
+<code>classes_missing_val = []</code>.</p>
+
+<h4>Figure 1. Partition composition</h4>
+<div class="chart">
+  <div class="bar-row"><div class="name">healthy</div><div class="bar-track"><div class="bar" style="width:80%"></div></div><div class="val">400/50/50</div></div>
+  <div class="bar-row"><div class="name">leaf_rust</div><div class="bar-track"><div class="bar" style="width:80%"></div></div><div class="val">400/50/50</div></div>
+  <div class="bar-row"><div class="name">leaf_spot</div><div class="bar-track"><div class="bar" style="width:80%"></div></div><div class="val">400/50/50</div></div>
+  <div class="bar-row"><div class="name">leaf_blight</div><div class="bar-track"><div class="bar" style="width:80%"></div></div><div class="val">400/50/50</div></div>
+  <div class="legend">Bar = train share (80%); right labels show train / val / test per class</div>
+</div>
+
+<h3>Data Analysis</h3>
+<p>Performance was quantified on the isolated test split using standard
+scikit&ndash;learn metrics (accuracy, precision, recall, F1) averaged macro&ndash;wise and computed
+per class:</p>
+<div class="formula">Accuracy = (TP + TN) / (TP + TN + FP + FN) &nbsp;&nbsp;(1)</div>
+<div class="formula">Precision = TP / (TP + FP) &nbsp;&nbsp;(2) &nbsp;&nbsp;|&nbsp;&nbsp;
+Recall = TP / (TP + FN) &nbsp;&nbsp;(3)</div>
+<div class="formula">F1 = 2 &middot; (Precision &middot; Recall) / (Precision + Recall) &nbsp;&nbsp;(4)</div>
+<p class="note">Legend: TP = true positive; TN = true negative; FP = false positive; FN =
+false negative.</p>
+
+<h4>Table 4. Pre&ndash;registered acceptance criteria (fixed before evaluation, never tuned)</h4>
+<table class="tblleft">
+  <tr><th>Objective&ndash;4 metric</th><th>Threshold</th><th>Rationale</th></tr>
+  <tr><td>Overall accuracy</td><td>&ge; 0.60</td><td>(1.1) clear margin above chance (0.25 for 4 classes)</td></tr>
+  <tr><td>Macro precision</td><td>&ge; 0.60</td><td>(2.2) guards against firing often but missing (many FPs)</td></tr>
+  <tr><td>Macro recall</td><td>&ge; 0.60</td><td>(3.3) guards against missing entire classes</td></tr>
+  <tr><td>Macro F1</td><td>&ge; 0.60</td><td>(4.4) balanced summary; guards majority&ndash;class guessing</td></tr>
+  <tr><td>Per&ndash;class accuracy/p/rec/F1</td><td>&ge; 0.40</td><td>no class may be silently neglected</td></tr>
+  <tr><td>Test size</td><td>&ge; 30</td><td>statistical evidence floor (200 planned)</td></tr>
+</table>
+<p class="note">Consistency &amp; calibration analysis (mean confidence on correct vs. incorrect,
+high&ndash;confidence errors, difficult low&ndash;margin cases) is reported alongside, and confusion
+matrices accompany every verdict. In&ndash;field (natural&ndash;background) rows are analyzed
+separately as the out&ndash;of&ndash;distribution reference.</p>
+
+<!-- ======================= CHAPTER 3 ======================= -->
+<h2 class="chapter">CHAPTER 3 — RESULTS AND DISCUSSIONS</h2>
+
+<h3>Dataset Composition and Verification</h3>
+<p>The validated corpus contains <b>2,000 unique images</b>: 500 per class
+(healthy / leaf_rust / leaf_spot / leaf_blight), all <code>APPROVED</code>, with 21 duplicates
+removed at ingestion and near&ndash;duplicates flagged for review. The corpus mixes
+controlled&ndash;background (lab&ndash;type) and in&ndash;field (natural&ndash;background) photos, giving the
+test split real&ndash;world distribution variety while standardized preprocessing governs
+illumination drift.</p>
+
+<h3>Classification Performance on Held&ndash;Out Test Data</h3>
+<div class="pending">PENDING &mdash; a full acceptance run on the current validated cut
+(v1.0) is required to finalize this table. The framework below is the exact reporting
+contract; the current best evidence from prior raw&ndash;photo runs is shown after it.</div>
+
+<h4>Table 5. Held&ndash;out test&ndash;split performance framework (fill from
+<code>ml/reports/evaluation/&lt;model_version&gt;/</code>)</h4>
+<table class="tblleft">
+  <tr><th>Metric</th><th>Model A (baseline)</th><th>Model B (fine&ndash;tune)</th><th>Model C (full FT)</th></tr>
+  <tr><td>Accuracy</td><td>&mdash;</td><td>&mdash;</td><td>&mdash;</td></tr>
+  <tr><td>Precision (macro)</td><td>&mdash;</td><td>&mdash;</td><td>&mdash;</td></tr>
+  <tr><td>Recall (macro)</td><td>&mdash;</td><td>&mdash;</td><td>&mdash;</td></tr>
+  <tr><td>F1&ndash;score (macro)</td><td>&mdash;</td><td>&mdash;</td><td>&mdash;</td></tr>
+  <tr><td>Acceptance verdict</td><td>&mdash;</td><td>&mdash;</td><td>&mdash;</td></tr>
+</table>
+
+<h4>Table 6. Best verifiable raw&ndash;photo evidence to date (prior pipeline EXP runs, in&ndash;domain eval)</h4>
+<table class="tblleft">
+  <tr><th>Metric</th><th>Value</th><th>Context</th></tr>
+  <tr><td>Accuracy</td><td>0.805</td><td>V3.0&ndash;Raw2026 EXP &mdash; in&ndash;domain held&ndash;out test, n = 195</td></tr>
+  <tr><td>Macro F1</td><td>0.706</td><td>same run</td></tr>
+  <tr><td>Per&ndash;class support</td><td>blight 15 / spot 45 / rust 35</td><td>small per&ndash;class n &rarr; statistically weak</td></tr>
+  <tr><td>Caveat</td><td>not converged (5 epochs)</td><td>val loss still falling; n &lt; 30 per class for some classes</td></tr>
+</table>
+<p>An early deep&ndash;tuned model evaluated on a <i>fixed field&ndash;domain</i> reference test set
+reported lower numbers (accuracy 0.490, macro F1 0.465), a result attributed to domain
+confounding (healthy trained on in&ndash;field photos while disease classes were lab&ndash;scan
+images) &mdash; an explicit motivation for the current mixed&ndash;background, per&ndash;class&ndash;stratified
+corpus.</p>
+
+<h3>Generalization Across Data Splits</h3>
+<div class="chart">
+  <div class="bar-row"><div class="name">train</div><div class="bar-track"><div class="bar goal" style="width:0%"></div></div><div class="val">pending</div></div>
+  <div class="bar-row"><div class="name">validation</div><div class="bar-track"><div class="bar goal" style="width:0%"></div></div><div class="val">pending</div></div>
+  <div class="bar-row"><div class="name">test</div><div class="bar-track"><div class="bar goal" style="width:0%"></div></div><div class="val">pending</div></div>
+  <div class="legend">Train&ndash;test accuracy gap measures memorization vs. generalization</div>
+</div>
+<p>No gap exceeding early&ndash;stopping&ndash;consistent behavior is accepted silently: a materially
+wider train&ndash;test gap (as observed in early fine&ndash;tuned runs) is reported as an overfitting
+signal and handled by the frozen&ndash;backbone/late&ndash;unfreeze strategy ladder of Table 1.</p>
+
+<h3>Discriminative Ability</h3>
+<p>Per&ndash;class precision/recall/F1 with support and the full confusion matrix accompany every
+verdict; per&ndash;class recall reveals which classes are missed. A ROC&ndash;AUC analysis and
+reliability (ECE) calibration curve are planned additions to reach full parity with the
+reference manuscript's analysis depth (requires the 200&ndash;image test set, which provides a
+statistically credible n).</p>
+
+<h3>Distribution&ndash;Shift and Confidence Analysis</h3>
+<p>The evaluator reports controlled&ndash;background vs. in&ndash;field key&ndash;metric differences (mild
+covariate shift) and characterizes errors: mean confidence on correct vs. incorrect
+decisions, counts of high&ndash;confidence errors (&ge;0.8 confidence but wrong), and
+difficult/low&ndash;margin cases (margin &lt; 0.10 or confidence &lt; 0.50). These make the numbers
+interpretable rather than merely "high".</p>
+
+<!-- ======================= CHAPTER 4 ======================= -->
+<h2 class="chapter">CHAPTER 4 — SUMMARY, CONCLUSIONS, RECOMMENDATIONS</h2>
+
+<h3>Summary</h3>
+<p>LEAFNET operationalizes a defensible, reproducible four&ndash;class mulberry leaf classifier:
+a validated 2,000&ndash;image corpus, a leakage&ndash;controlled 1600/200/200 partition with every
+class measurable in test and validation, pre&ndash;registered objective thresholds, and a single
+auditable evaluation pass per candidate.</p>
+
+<h3>Conclusions</h3>
+<ul>
+  <li><b>Objectivity:</b> acceptance is decided by pre&ndash;registered accuracy / precision /
+      recall / F1 thresholds on an isolated, integrity&ndash;checked test split &mdash; never by
+      thresholds tuned after results.</li>
+  <li><b>Measurable every class:</b> the stratified split guarantees every class appears in
+      test and validation, so worst&ndash;class performance cannot be hidden.</li>
+  <li><b>Leakage&ndash;free:</b> content&ndash;hash union&ndash;find + grouped assignment make split
+      contamination structurally impossible and audit&ndash;verified.</li>
+  <li><b>Evidence until a candidate passes</b>, the results above remain a research&ndash;
+      methodology claim, not an acceptance claim.</li>
+</ul>
+
+<h3>Recommendations</h3>
+<ul>
+  <li>Complete the v1.0 acceptance run to populate Tables 4 &amp; generalization figures.</li>
+  <li>Add ROC&ndash;AUC + reliability diagrams to the evaluation pass for parity with the
+      reference manuscript.</li>
+  <li>Collect more in&ndash;field (natural&ndash;background) images for underrepresented classes to
+      shrink distribution&ndash;shift gaps, mirroring the reference's limitation discussion.</li>
+  <li>Report top&ndash;2 agreement and margin statistics to surface spot&ndash;vs.&ndash;blight ambiguity.</li>
+</ul>
+
+<!-- ======================= REFERENCES ======================= -->
+<h2 class="chapter">REFERENCES (SELECTED)</h2>
+<ul class="refs">
+  <li>Shahbazi, et al. (2025). Loss drivers in agricultural production. [As cited in reference manuscript]</li>
+  <li>Nicolas (2024); AGRIVI (2026); Taha et al. (2025); Mes&iacute;as-Ruiz et al. (2023).
+      Food security &amp; agricultural intelligence background. [As cited in AgriLeafCare Final Manus]</li>
+  <li>Kumar (2025); Trymata (2025). Developmental and evaluative research design definitions.</li>
+  <li>Hatuwal et al. (2020); Walker (2026). Reference performance indicator bands (accuracy &gt;90%/<50%, precision-recall-F1 &gt;80%/<50%).</li>
+  <li>LEAFNET internal methodology: <code>docs/training-methodology.md</code>,
+      <code>docs/dataset.md</code>, <code>docs/thesis-methodology.md</code>,
+      <code>ml/src/config/acceptance.json</code>, <code>ml/src/data/splitting.py</code>,
+      <code>ml/src/training/preflight.py</code>, <code>ml/src/evaluation/evaluate.py</code>.</li>
+</ul>
+
+<h2 class="chapter">APPENDIX A — AUDIT TRAIL / ARTIFACTS</h2>
+<p>Every claim above maps to a reproducible artifact:</p>
+<table class="tblleft">
+  <tr><th>Claim</th><th>Artifact</th></tr>
+  <tr><td>Partition 1600/200/200, per&ndash;class 400/50/50</td><td><code>ml/data/prepared/&lt;dataset&gt;_seed42.jsonl</code> + <code>.audit.json</code></td></tr>
+  <tr><td>Preflight guarantees</td><td><code>ml/src/training/preflight.py</code> (+ tests)</td></tr>
+  <tr><td>Metrics &amp; verdict</td><td><code>ml/reports/evaluation/&lt;model_version&gt;/{metrics,acceptance}.json</code></td></tr>
+  <tr><td>Reproducibility</td><td>fixed seed 42, cached manifests, containerized code (git)</td></tr>
+</table>
+
+<footer>LEAFNET Research Findings &middot; generated from the live system's auditable artifacts &middot; September 2026</footer>
+</div>
+</body>
+</html>

@@ -19,6 +19,7 @@ import json
 import urllib.request
 from pathlib import Path
 
+import numpy as np
 import torch
 from PIL import Image
 from torch.utils.data import Dataset
@@ -37,13 +38,17 @@ def load_class_mapping() -> dict[str, int]:
     return {c["key"]: c["id"] for c in raw["classes"] if c.get("enabled", True)}
 
 
-def fetch_manifest(api_base: str, dataset_id: str) -> list[dict]:
-    with urllib.request.urlopen(f"{api_base}/api/datasets/{dataset_id}/manifest", timeout=30) as r:
+def fetch_manifest(api_base: str, dataset_id: str, auth_token: str = "") -> list[dict]:
+    req = urllib.request.Request(f"{api_base}/api/datasets/{dataset_id}/manifest")
+    if auth_token:
+        req.add_header("Authorization", f"Bearer {auth_token}")
+    with urllib.request.urlopen(req, timeout=30) as r:
         return [json.loads(line) for line in r.read().decode().splitlines() if line.strip()]
 
 
 def prepare_dataset(api_base: str, dataset_id: str, seed: int = 42,
-                    force: bool = False, pilot: bool = False) -> tuple[Path, dict]:
+                    force: bool = False, pilot: bool = False,
+                    auth_token: str = "") -> tuple[Path, dict]:
     """Fetch manifest + assign splits. Cached per (dataset, seed) unless force.
 
     pilot=True: image-level split ignoring grouping keys (keys are RETAINED in
@@ -56,7 +61,7 @@ def prepare_dataset(api_base: str, dataset_id: str, seed: int = 42,
     out = PREPARED_DIR / f"{dataset_id}{suffix}.jsonl"
     audit_path = PREPARED_DIR / f"{dataset_id}{suffix}.audit.json"
 
-    rows = fetch_manifest(api_base, dataset_id)
+    rows = fetch_manifest(api_base, dataset_id, auth_token)
     approved = [
         {**r, "class": r["class"]}
         for r in rows
@@ -102,15 +107,51 @@ def _counts(rows: list[dict]) -> dict:
     }
 
 
+class PhotometricReference(object):
+    """Per-image leaf-brightness reference normalization.
+
+    Scales leaf-pixel RGB so each image's mean leaf Value lands on the reference
+    computed from the TRAINING split (leak-safe). Scaling RGB by a single factor
+    preserves hue/saturation exactly while setting max-channel (Value) -> gV*V,
+    so backgrounds (near-white pixels) are left untouched. Applied first in both
+    train and eval transforms; ColorJitter subsequently perturbs AROUND the
+    normalized baseline. Neutralizes lot-level illumination/processing drift
+    (the white-background cut-out left the test blight lot ~30% brighter than
+    its training lots, which collapsed blight recall on it).
+    """
+
+    def __init__(self, ref_value: float):
+        self.ref_value = ref_value
+
+    def __call__(self, img):
+        a = np.asarray(img.convert("RGB"), dtype=np.float32)
+        mx = a.max(axis=-1)
+        mn = a.min(axis=-1)
+        s = np.zeros_like(mx)
+        np.divide(mx - mn, mx, out=s, where=mx > 0)
+        v = mx / 255.0
+        leaf = ~((s < 0.12) & (v > 0.78))  # near-white background
+        if leaf.sum() < 100:
+            return img
+        gain = min(max(self.ref_value / max(v[leaf].mean(), 1e-4), 0.6), 2.5)
+        out = a.copy()
+        out[leaf] = np.clip(a[leaf] * gain, 0, 255)
+        return Image.fromarray(out.astype(np.uint8), "RGB")
+
+
 def build_transforms(config: dict, train: bool) -> transforms.Compose:
     """Augmentation ONLY on train (each transform has a documented rationale);
     deterministic resize+normalize for validation/test."""
     p = config["preprocessing"]
     size = p["resize"]
     norm = p["normalization"]
+    ref = (p.get("photometricReference") or {}).get("enabled")
+    prefix: list = []
+    if ref:
+        prefix.append(PhotometricReference(p["photometricReference"]["value"]))
     if train:
         a = config["augmentation"]
-        ops: list = []
+        ops: list = list(prefix)
         if a.get("horizontalFlip", 0):
             ops.append(transforms.RandomHorizontalFlip(p=a["horizontalFlip"]))
         deg = a.get("rotationDegrees", 0)
@@ -128,7 +169,7 @@ def build_transforms(config: dict, train: bool) -> transforms.Compose:
             transforms.Normalize(norm["mean"], norm["std"]),
         ]
         return transforms.Compose(ops)
-    return transforms.Compose([
+    return transforms.Compose(prefix + [
         transforms.Resize(size),
         transforms.ToTensor(),
         transforms.Normalize(norm["mean"], norm["std"]),

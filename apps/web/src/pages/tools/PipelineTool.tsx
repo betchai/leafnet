@@ -1,6 +1,6 @@
 // TOOLS + PIPELINE
 import { useEffect, useRef, useState } from "react";
-import { api } from "../../lib/api";
+import { api, apiFetch } from "../../lib/api";
 
 interface DatasetRow {
   id: string;
@@ -18,6 +18,16 @@ interface JobState {
 /** Pipeline Runner — one click for Steps 9→10→11 (explore → train → evaluate)
  *  after cutting a dataset version. Runs in the Python ML service. */
 const JOB_KEY = "leafnet.pipeline.jobId";
+
+async function runningJobId(): Promise<string | null> {
+  try {
+    const list = await apiFetch("/tools/pipeline/jobs").then((r) => r.json());
+    const run = (Array.isArray(list) ? list : []).find((j) => j.status === "running");
+    return run?.job_id ?? null;
+  } catch {
+    return null;
+  }
+}
 
 export default function PipelineTool() {
   const [datasets, setDatasets] = useState<DatasetRow[]>([]);
@@ -39,24 +49,19 @@ export default function PipelineTool() {
   }, []);
 
   useEffect(() => {
-    const saved = sessionStorage.getItem(JOB_KEY);
-    if (saved) {
-      setJobId(saved);
-      setBusy(true);
-      return;
-    }
-    fetch("/api/tools/pipeline/jobs")
-      .then((r) => r.json())
-      .then((list) => {
-        if (!Array.isArray(list)) return;
-        const running = (list as { job_id: string; status: string }[]).find((j) => j.status === "running");
-        if (running?.job_id) {
-          setJobId(running.job_id);
-          sessionStorage.setItem(JOB_KEY, running.job_id);
-          setBusy(true);
-        }
-      })
-      .catch(() => {});
+    runningJobId().then((running) => {
+      if (running) {
+        setJobId(running);
+        sessionStorage.setItem(JOB_KEY, running);
+        setBusy(true);
+        return;
+      }
+      const saved = sessionStorage.getItem(JOB_KEY);
+      if (saved) {
+        setJobId(saved);
+        setBusy(true);
+      }
+    });
   }, []);
 
   useEffect(() => {
@@ -64,14 +69,14 @@ export default function PipelineTool() {
     timer.current = window.setInterval(async () => {
       let d: JobState & { error?: string };
       try {
-        const r = await fetch(`/api/tools/pipeline/status/${jobId}`);
+        const r = await apiFetch(`/tools/pipeline/status/${jobId}`);
         d = await r.json();
       } catch {
         return;
       }
       if (d?.error) {
         try {
-          const list = await fetch("/api/tools/pipeline/jobs").then((r) => r.json());
+          const list = await apiFetch("/tools/pipeline/jobs").then((r) => r.json());
           const running = Array.isArray(list)
             ? (list as { job_id: string; status: string }[]).find((j) => j.status === "running")
             : null;
@@ -83,15 +88,25 @@ export default function PipelineTool() {
           }
         } catch {
         }
+        window.clearInterval(timer.current);
+        sessionStorage.removeItem(JOB_KEY);
+        setJobId(null);
+        setJob(null);
         setError("This pipeline job is no longer tracked — the ML service restarted and its in-memory job state was lost. Start a new run.");
         setBusy(false);
-        window.clearInterval(timer.current);
         return;
       }
       setJob(d);
       if (d.status === "completed" || d.status === "failed") {
         window.clearInterval(timer.current);
-        setBusy(false);
+        const running = await runningJobId();
+        if (running && running !== jobId) {
+          setJobId(running);
+          sessionStorage.setItem(JOB_KEY, running);
+          setBusy(true);
+        } else {
+          setBusy(false);
+        }
       }
     }, 3000);
     return () => window.clearInterval(timer.current);
@@ -105,7 +120,7 @@ export default function PipelineTool() {
     setJob(null);
 
     // Two experiments per methodology: baseline + fine-tune (controlled comparison)
-    const res = await fetch("/api/tools/pipeline/start", {
+    const res = await apiFetch("/tools/pipeline/start", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

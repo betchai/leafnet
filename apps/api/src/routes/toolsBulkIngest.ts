@@ -5,6 +5,8 @@ import { Router } from "express";
 import multer from "multer";
 import { PrismaClient } from "@prisma/client";
 
+import { authorize } from "../auth/middleware.js";
+import { roleToActorRole } from "../rbac/permissions.js";
 import { ingestImage } from "../services/ingestion.js";
 import { assertValidClassKey } from "../domain/taxonomy.js";
 
@@ -17,6 +19,7 @@ const upload = multer({
 
 router.post(
   "/bulk-ingest",
+  authorize("bulk_ingest"),
   upload.array("images", 500),
   async (req, res) => {
     const files = req.files as Express.Multer.File[] | undefined;
@@ -24,16 +27,14 @@ router.post(
 
     const meta = req.body as Record<string, string>;
     const label = meta.assignLabel || "";
-    const actor = meta.annotator || "";
+    const actor = req.user!.name;
+    const actorRole = roleToActorRole(req.user!.role);
 
     if (label) {
       try {
         assertValidClassKey(label);
       } catch (err: unknown) {
         return res.status(422).json({ error: (err as Error).message });
-      }
-      if (!actor) {
-        return res.status(400).json({ error: "annotator name required when assigning a label" });
       }
     }
 
@@ -84,9 +85,9 @@ router.post(
               newLabel: label,
               previousStatus: "UNLABELED",
               newStatus: "ANNOTATED",
-              actor,
-              actorRole: "annotator",
-              reason: `bulk ingestion (${meta.source ?? "unspecified"})`,
+actor,
+            actorRole,
+            reason: `bulk ingestion (${meta.source ?? "unspecified"})`,
             },
           });
           results.labeled++;

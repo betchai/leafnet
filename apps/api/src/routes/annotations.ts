@@ -1,12 +1,13 @@
 import { Router } from "express";
 import { PrismaClient, AnnotationStatus } from "@prisma/client";
 
+import { authorize } from "../auth/middleware.js";
+import { roleToActorRole } from "../rbac/permissions.js";
 import { assertValidClassKey } from "../domain/taxonomy.js";
 import {
   validatePreliminaryAnnotation,
   validateTransition,
   ReviewAction,
-  ActorRole,
 } from "../domain/workflow.js";
 
 const prisma = new PrismaClient();
@@ -31,10 +32,12 @@ async function audit(params: {
  * Body: { actor, label, confidence?, severity?, notes? }
  * Labels are strictly validated against the approved 4-class taxonomy.
  */
-router.post("/images/:id/annotations", async (req, res) => {
-  const { actor, label, confidence, severity, notes } = req.body ?? {};
-  if (!actor || !label)
-    return res.status(400).json({ error: "actor and label are required" });
+router.post("/images/:id/annotations", authorize("annotate"), async (req, res) => {
+  const { label, confidence, severity, notes } = req.body ?? {};
+  if (!label)
+    return res.status(400).json({ error: "label is required" });
+  const actor = req.user!.name;
+  const actorRole = roleToActorRole(req.user!.role);
 
   try {
     assertValidClassKey(label);
@@ -91,10 +94,12 @@ router.post("/images/:id/annotations", async (req, res) => {
  *         label?, reason? }
  * Enforces role, state machine, and taxonomy. Appends audit entries only.
  */
-router.post("/images/:id/review", async (req, res) => {
-  const { actor, action, label, reason } = req.body ?? {};
-  if (!actor || !action)
-    return res.status(400).json({ error: "actor and action are required" });
+router.post("/images/:id/review", authorize("expert_review"), async (req, res) => {
+  const { action, label, reason } = req.body ?? {};
+  if (!action)
+    return res.status(400).json({ error: "action is required" });
+  const actor = req.user!.name;
+  const actorRole = roleToActorRole(req.user!.role);
 
   if (label) {
     try {
@@ -121,7 +126,7 @@ router.post("/images/:id/review", async (req, res) => {
     result = validateTransition({
       action: action as ReviewAction,
       currentStatus,
-      actorRole: (req.body.actorRole ?? "expert") as ActorRole,
+      actorRole,
       hasPreliminaryLabel: Boolean(preliminary),
       newLabel: label ?? preliminary?.preliminaryLabel,
     });
@@ -179,7 +184,7 @@ router.post("/images/:id/review", async (req, res) => {
     previousStatus: currentStatus,
     newStatus: result.newStatus,
     actor,
-    actorRole: String(req.body.actorRole ?? "expert"),
+    actorRole,
     reason: reason || null,
   });
 
@@ -187,7 +192,7 @@ router.post("/images/:id/review", async (req, res) => {
 });
 
 // GET /api/images/:id/audit — who/when/what/why history
-router.get("/images/:id/audit", async (req, res) => {
+router.get("/images/:id/audit", authorize("view_dataset"), async (req, res) => {
   const audits = await prisma.annotationAudit.findMany({
     where: { imageId: req.params.id },
     orderBy: { createdAt: "asc" },
@@ -203,9 +208,10 @@ router.get("/images/:id/audit", async (req, res) => {
  * to a known class); otherwise each image is confirmed to its own preliminary
  * label. Failed images are reported per-id, never silently skipped.
  */
-router.post("/review/batch-confirm", async (req, res) => {
-  const { actor, imageIds, label } = req.body ?? {};
-  if (!actor) return res.status(400).json({ error: "actor is required" });
+router.post("/review/batch-confirm", authorize("expert_review"), async (req, res) => {
+  const { imageIds, label } = req.body ?? {};
+  const actor = req.user!.name;
+  const actorRole = roleToActorRole(req.user!.role);
 
   if (label) {
     try {
@@ -236,7 +242,7 @@ router.post("/review/batch-confirm", async (req, res) => {
       validateTransition({
         action: "confirm" as ReviewAction,
         currentStatus,
-        actorRole: (req.body.actorRole ?? "expert") as ActorRole,
+        actorRole,
         hasPreliminaryLabel: Boolean(preliminary) || Boolean(label),
         newLabel: label ?? preliminary?.preliminaryLabel,
       });
@@ -263,7 +269,7 @@ router.post("/review/batch-confirm", async (req, res) => {
       await audit({
         imageId: image.id, action: "review_confirm", previousLabel: preliminary.preliminaryLabel ?? null,
         newLabel: finalLabel, previousStatus: currentStatus, newStatus: "APPROVED",
-        actor, actorRole: String(req.body.actorRole ?? "expert"),
+        actor, actorRole,
         reason: label ? `batch confirm to ${label}` : "batch confirm",
       });
       confirmed.push(image.id);
@@ -279,7 +285,7 @@ router.post("/review/batch-confirm", async (req, res) => {
  * GET /api/review/batch-confirm-preview — count pending images by their
  * preliminary label, so the UI can show a breakdown before bulk-confirming.
  */
-router.get("/review/batch-confirm-preview", async (_req, res) => {
+router.get("/review/batch-confirm-preview", authorize("expert_review"), async (_req, res) => {
   const eligibleStatuses: AnnotationStatus[] = ["ANNOTATED", "EXPERT_REVIEWED", "SECOND_OPINION"];
   const images = await prisma.image.findMany({
     where: { annotationStatus: { in: eligibleStatuses } },

@@ -1,5 +1,6 @@
 // TOOLS
 import { useRef, useState } from "react";
+import { apiFetch } from "../../lib/api";
 
 const CLASS_OPTIONS = ["", "healthy", "leaf_rust", "leaf_spot", "leaf_blight"] as const;
 
@@ -28,7 +29,6 @@ export default function BulkIngestTool() {
   const [location, setLocation] = useState("");
   const [license, setLicense] = useState("own_photo");
   const [assignLabel, setAssignLabel] = useState("");
-  const [annotator, setAnnotator] = useState("");
   const [isDevFixture, setIsDevFixture] = useState(false);
 
   async function ingest() {
@@ -52,11 +52,10 @@ export default function BulkIngestTool() {
       };
       if (assignLabel) {
         meta.assignLabel = assignLabel;
-        meta.annotator = annotator;
       }
       Object.entries(meta).forEach(([k, v]) => v && fd.append(k, v));
 
-      const res = await fetch("/api/tools/bulk-ingest", { method: "POST", body: fd });
+      const res = await apiFetch("/tools/bulk-ingest", { method: "POST", body: fd });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
       setResult(data);
@@ -113,23 +112,18 @@ export default function BulkIngestTool() {
       <section className="rounded-lg bg-white border border-gray-200 p-5 space-y-3">
         <h2 className="font-semibold">3. Preliminary label (optional)</h2>
         <p className="text-xs text-gray-400">
-          If set, every ingested image gets this as a PRELIMINARY label under your name —
-          still requiring expert review before becoming ground truth.
+          If set, every ingested image gets this as a PRELIMINARY label under your
+          account name — still requiring expert review before becoming ground truth.
           Leave empty to label individually later.
         </p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
-          <select className="border rounded px-2 py-1" value={assignLabel}
-            onChange={(e) => setAssignLabel(e.target.value)}>
-            {CLASS_OPTIONS.map((c) => (
-              <option key={c || "none"} value={c}>
-                {c ? `Assign: ${c}` : "No bulk label"}
-              </option>
-            ))}
-          </select>
-          <input className="border rounded px-2 py-1" placeholder="Annotator name"
-            value={annotator} onChange={(e) => setAnnotator(e.target.value)}
-            disabled={!assignLabel} />
-        </div>
+        <select className="border rounded px-2 py-1 text-sm" value={assignLabel}
+          onChange={(e) => setAssignLabel(e.target.value)}>
+          {CLASS_OPTIONS.map((c) => (
+            <option key={c || "none"} value={c}>
+              {c ? `Assign: ${c}` : "No bulk label"}
+            </option>
+          ))}
+        </select>
       </section>
 
       <button onClick={ingest} disabled={!files?.length || busy}

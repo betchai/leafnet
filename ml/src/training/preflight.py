@@ -1,11 +1,19 @@
 """Preflight integrity checks — run BEFORE any training.
 
 If anything fails, training is refused with an explicit report.
+
+The 80/10/10 partition integrity is enforced here too: a manifest is only
+trainable when every taxonomy class is MEASURABLE — present in BOTH the
+validation and isolated test splits (whenever it has enough rows to be) — and
+no split has collapsed below 5% of the dataset. This hard-refuses the
+"healthy absent from test" trap instead of quietly training an unevaluable
+partition.
 """
 
 from __future__ import annotations
 
 import json
+from collections import defaultdict
 from pathlib import Path
 
 
@@ -54,7 +62,40 @@ def run_preflight(manifest_path: Path, class_mapping: dict[str, int]) -> tuple[b
     if dup_leaks:
         problems.append(f"exact duplicates across splits (leakage): {dup_leaks}")
 
-    # 6. files readable
+    # 6. per-class held-out coverage — a class with ZERO test or validation rows
+    # is unmeasurable (the "healthy 495/5/0" trap), so refuse to train on it.
+    # The >= 3-row threshold mirrors the splitter's own measurability guarantee
+    # (_split_group_counts): a class that physically cannot support a held-out
+    # split must never silently train into an unevaluable partition either.
+    per_class_splits: dict[str, set] = defaultdict(set)
+    for r in rows:
+        if r.get("class"):
+            per_class_splits[r["class"]].add(r.get("split"))
+    for cls in sorted(class_mapping):
+        if cls not in per_class_splits:
+            continue  # entirely-absent classes already flagged in check 3
+        cls_rows = [r for r in rows if r.get("class") == cls]
+        if len(cls_rows) < 3:
+            continue
+        sides = per_class_splits[cls]
+        if "test" not in sides:
+            problems.append(
+                f"class '{cls}' has NO isolated TEST rows — held-out performance is unmeasurable")
+        if "validation" not in sides:
+            problems.append(
+                f"class '{cls}' has NO VALIDATION rows — training cannot be monitored for it")
+
+    # 7. 80/10/10 partition integrity — no split may collapse below 5% of the
+    # dataset, so a run can never proceed on a nominal-but-degenerate partition.
+    total = len(rows)
+    floor = round(total * 0.05)
+    for split in ("train", "validation", "test"):
+        if len(splits[split]) < floor:
+            problems.append(
+                f"split '{split}' has only {len(splits[split])} rows "
+                f"(< {floor}, the 5% sanity floor) — not a credible 80/10/10 partition")
+
+    # 8. files readable
     unreadable = []
     for r in rows:
         p = Path(r["path"])
@@ -72,6 +113,8 @@ def run_preflight(manifest_path: Path, class_mapping: dict[str, int]) -> tuple[b
             "validation": len(splits["validation"]),
             "test_isolated": len(splits["test"]),
             "per_class_train": _per_class(splits["train"]),
+            "per_class_validation": _per_class(splits["validation"]),
+            "per_class_test": _per_class(splits["test"]),
         },
         "class_mapping": class_mapping,
     }

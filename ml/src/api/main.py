@@ -16,6 +16,7 @@ from __future__ import annotations
 import base64
 import json
 import logging
+import os
 import sys
 import time
 import uuid
@@ -27,6 +28,15 @@ from fastapi import FastAPI, File, HTTPException, UploadFile
 ML_ROOT = Path(__file__).resolve().parents[2]
 if str(ML_ROOT) not in sys.path:
     sys.path.insert(0, str(ML_ROOT))
+
+# Load repo-root .env so SERVICE_TOKEN (and friends) are always available,
+# even when the service is started without a manual export.
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv(ML_ROOT.parent / ".env")
+except Exception:  # python-dotenv optional
+    pass
 
 from src.inference import model_loader, preprocessing as pre  # noqa: E402
 from src.inference.predictor import apply_review_flag, predict_tensor  # noqa: E402
@@ -40,6 +50,12 @@ from src.api.schemas import (  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("leafnet-ml")
+
+if not os.environ.get("SERVICE_TOKEN"):
+    log.warning(
+        "SERVICE_TOKEN is not set (and not in .env) — pipeline auto-register to "
+        "the Node API will fail with 401 Invalid service token."
+    )
 
 # ---- configuration (controlled; never from user input) ----
 CONFIG_PATH = ML_ROOT / "src" / "config" / "training.json"

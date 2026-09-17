@@ -1,6 +1,8 @@
 // TOOLS
 import { useEffect, useState } from "react";
-import { toolsApi, ImageRow, ClassConfig } from "../../lib/api";
+import { toolsApi, ImageRow, ClassConfig, apiFetch } from "../../lib/api";
+import { useAuth } from "../../auth/AuthContext";
+import { Modal } from "../../components/Modal";
 
 const CLASS_OPTIONS = ["healthy", "leaf_rust", "leaf_spot", "leaf_blight"] as const;
 const LABELS: Record<string, string> = {
@@ -12,9 +14,9 @@ const LABELS: Record<string, string> = {
 
 /** Acquire & Label — ingest images then assign preliminary labels. */
 export default function LabelTool() {
+  const { user } = useAuth();
   const [queue, setQueue] = useState<ImageRow[]>([]);
   const [classes, setClasses] = useState<ClassConfig | null>(null);
-  const [actor, setActor] = useState("");
   const [confidence, setConfidence] = useState(0.8);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -24,6 +26,9 @@ export default function LabelTool() {
   const [sessionId, setSessionId] = useState("");
   const [plantId, setPlantId] = useState("");
   const [leafId, setLeafId] = useState("");
+
+  // reject modal state
+  const [rejectTarget, setRejectTarget] = useState<ImageRow | null>(null);
 
   async function refresh() {
     const unlabeled = await toolsApi.imagesByStatus("UNLABELED");
@@ -55,9 +60,30 @@ export default function LabelTool() {
   }
 
   async function label(id: string, labelKey: string) {
-    if (!actor) return setMsg("Enter an annotator name first.");
-    const r = await toolsApi.annotate(id, { actor, label: labelKey, confidence });
+    const r = await toolsApi.annotate(id, { label: labelKey, confidence });
     setMsg(r.ok ? `Labeled as ${LABELS[labelKey]}` : `Failed: ${r.data.error ?? ""}`);
+    refresh();
+  }
+
+  function openRejectModal(img: ImageRow) {
+    setRejectTarget(img);
+  }
+
+  function closeRejectModal() {
+    setRejectTarget(null);
+  }
+
+  async function confirmReject() {
+    const img = rejectTarget;
+    if (!img) return;
+    closeRejectModal();
+    const res = await apiFetch(`/images/${img.id}`, { method: "DELETE" });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) {
+      setMsg(`🗑 Rejected & deleted ${img.filename}`);
+    } else {
+      setMsg(`Reject failed: ${data.error ?? res.status}`);
+    }
     refresh();
   }
 
@@ -88,9 +114,7 @@ export default function LabelTool() {
           <h2 className="font-semibold">2. Preliminary labeling</h2>
           <span className="text-xs text-gray-400">{queue.length} awaiting labels</span>
           <div className="ml-auto flex items-center gap-2 text-sm">
-            <label>Annotator:</label>
-            <input className="border rounded px-2 py-1 w-36" placeholder="your name"
-              value={actor} onChange={(e) => setActor(e.target.value)} />
+            <span className="text-xs text-gray-400">as {user?.name ?? "you"}</span>
             <label>Confidence:</label>
             <select className="border rounded px-2 py-1" value={confidence}
               onChange={(e) => setConfidence(Number(e.target.value))}>
@@ -116,6 +140,9 @@ export default function LabelTool() {
                     <p className="text-xs text-gray-500 truncate">
                       {img.filename} · {img.annotationStatus}
                       {img.source ? ` · ${img.source}` : ""}
+                      {img.source === "leaf_analyzer" && (
+                        <span className="ml-1 px-1.5 py-0.5 rounded-full bg-leaf-50 text-leaf-700">from Leaf Analyzer</span>
+                      )}
                     </p>
                     {pred && (
                       <p className="text-xs px-2 py-1 rounded bg-sky-50 border border-sky-100 text-sky-900">
@@ -139,6 +166,11 @@ export default function LabelTool() {
                           {LABELS[k]}
                         </button>
                       ))}
+                      <button onClick={() => openRejectModal(img)}
+                        className="px-2.5 py-1 rounded text-xs font-medium border border-red-300 text-red-600 hover:bg-red-50"
+                        title="Reject this data and delete it from the database and storage">
+                        🗑 Reject & delete
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -147,6 +179,26 @@ export default function LabelTool() {
           </div>
         )}
       </section>
+      <Modal
+        isOpen={rejectTarget !== null}
+        onClose={closeRejectModal}
+        title="Reject & delete image"
+        description={
+          <>
+            <p className="text-sm text-gray-600">
+              Reject and permanently delete <strong>{rejectTarget?.filename}</strong>?
+            </p>
+            <p className="mt-2 text-sm text-gray-500">
+              This removes the image from the database <strong>AND</strong> deletes the
+              stored file. The rejection is kept in the audit trail for traceability.
+            </p>
+          </>
+        }
+        confirmText="Reject & delete"
+        cancelText="Cancel"
+        onConfirm={confirmReject}
+        variant="danger"
+      />
     </div>
   );
 }

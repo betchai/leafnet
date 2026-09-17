@@ -1,6 +1,7 @@
 // TOOLS (Phase 9.1): monitoring dashboard — model behavior signals with honest
 // "baseline being established" states.
 import { useEffect, useState } from "react";
+import { apiFetch } from "../../lib/api";
 
 interface Summary {
   total_predictions: number;
@@ -23,7 +24,7 @@ export default function MonitoringTool() {
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/tools/monitoring/summary").then((r) => r.json()).then(setS).catch((e) => setErr(String(e)));
+    apiFetch("/tools/monitoring/summary").then((r) => r.json()).then(setS).catch((e) => setErr(String(e)));
   }, []);
 
   if (err) return <p className="text-sm text-red-700">{err}</p>;

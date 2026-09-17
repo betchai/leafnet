@@ -1,16 +1,24 @@
 {
-  "_comment": "Pre-registered objective acceptance thresholds for candidate models. These are fixed BEFORE a training run and before any evaluation results are seen; they are never tuned after results exist. The verdict computed from them is ADVISORY: it states objectively whether a candidate meets the research bar, but a human expert still decides whether to promote/activate/use the model (the lifecycle experimental -> ... -> approved -> active stays manual).",
-  "version": "1",
+  "_comment": "Pre-registered objective acceptance thresholds for candidate models. These are fixed BEFORE a training run and before any evaluation results are seen; they are never tuned after results exist. The verdict computed from them is ADVISORY: it states objectively whether a candidate meets the research bar, but a human expert still decides whether to promote/activate/use the model (the lifecycle experimental -> ... -> approved -> active stays manual). Anchored to the manuscript: Objective 4 requires evaluating the model in terms of (1.1) accuracy, (2.2) precision, (3.3) recall, and (4.4) F1-score, so each of those four metrics now has an explicit threshold. Version 2 only ADDED precision/recall bars (to make all four Objective-4 metrics gated); every threshold from v1 is unchanged.",
+  "version": "2",
   "criteria": {
     "test_size_min": 30,
     "accuracy_min": 0.6,
     "macro_f1_min": 0.6,
-    "per_class_f1_min": 0.4
+    "macro_precision_min": 0.6,
+    "macro_recall_min": 0.6,
+    "per_class_f1_min": 0.4,
+    "per_class_precision_min": 0.4,
+    "per_class_recall_min": 0.4
   },
   "rationale": {
     "test_size_min": "Evidence floor: below this held-out test size the verdict is INCONCLUSIVE (no statistically meaningful support). 10% of a full 2000-image dataset is 200, so 30 is a conservative floor for smaller pilot runs.",
-    "accuracy_min": "Overall accuracy must clear a comfortable margin above chance (0.25 for 4 classes).",
-    "macro_f1_min": "Macro-average F1 guards against accuracy being inflated by guessing the majority class.",
-    "per_class_f1_min": "No class may be silently neglected: worst-class F1 must stay reasonable."
+    "accuracy_min": "Objective 4.1 (accuracy). Overall accuracy must clear a comfortable margin above chance (0.25 for 4 classes).",
+    "macro_f1_min": "Objective 4.4 (F1-score). Macro-average F1 guards against accuracy being inflated by guessing the majority class.",
+    "macro_precision_min": "Objective 4.2 (precision). Macro-average precision guards against a model that fires often but mostly misses (many false positives).",
+    "macro_recall_min": "Objective 4.3 (recall/sensitivity). Macro-average recall guards against a model that misses entire classes (many false negatives).",
+    "per_class_f1_min": "Objective 4.4 (F1-score). No class may be silently neglected: worst-class F1 must stay reasonable.",
+    "per_class_precision_min": "Objective 4.2 (precision). No class may be neglected in precision: worst-class precision must stay reasonable.",
+    "per_class_recall_min": "Objective 4.3 (recall). No class may be neglected in recall: worst-class recall must stay reasonable."
   }
 }

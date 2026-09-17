@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { PrismaClient } from "@prisma/client";
+import { authorize } from "../auth/middleware.js";
 
 const prisma = new PrismaClient();
 const router = Router();
@@ -17,7 +18,7 @@ export const MANIFEST_FIELDS = [
  * Split assignment is NOT generated here — splitting happens in the
  * dedicated group-aware splitter once the dataset is complete.
  */
-router.get("/:id/manifest", async (req, res) => {
+router.get("/:id/manifest", authorize("dataset_admin"), async (req, res) => {
   const dataset = await prisma.dataset.findUnique({ where: { id: req.params.id } });
   if (!dataset) return res.status(404).json({ error: "Dataset not found" });
 

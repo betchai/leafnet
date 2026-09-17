@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { PrismaClient } from "@prisma/client";
 
+import { authorize } from "../auth/middleware.js";
 import { computeComposition } from "../domain/composition.js";
 
 const prisma = new PrismaClient();
@@ -11,7 +12,7 @@ const router = Router();
  * Research vs dev fixtures are reported separately; fixtures never count
  * toward research targets.
  */
-router.get("/status", async (_req, res) => {
+router.get("/status", authorize("view_dataset"), async (_req, res) => {
   const images = await prisma.image.findMany({
     include: { classifications: { select: { classKey: true } } },
   });

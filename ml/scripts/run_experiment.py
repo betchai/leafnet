@@ -36,13 +36,14 @@ def main() -> None:
     ap.add_argument("--notes", default="")
     ap.add_argument("--pilot", action="store_true",
                     help="Pipeline-validation mode: image-level split (grouping ignored). Research runs must NOT use this.")
+    ap.add_argument("--auth-token", default="", help="Bearer token for API calls (manifest, evaluation)")
     args = ap.parse_args()
 
     config = json.loads((ML_ROOT / "src" / "config" / "training.json").read_text())
     seed = config["experimentDefaults"]["randomSeed"]
 
     manifest_path, audit = prepare_dataset(args.api, args.dataset_id, seed=seed,
-                                           pilot=args.pilot)
+                                           pilot=args.pilot, auth_token=args.auth_token)
     print(f"manifest prepared: {manifest_path}")
     print(json.dumps(audit.get("counts", {}), indent=2))
 

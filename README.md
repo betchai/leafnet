@@ -170,6 +170,7 @@ frontend, backend, and ML · strong typing · simple architecture first.
 | ML API contract | `docs/ml-api.md` |
 | Application guide | `docs/application.md` |
 | Insights & analytics | `docs/insights.md`, `docs/analytics-methodology.md` |
+| Model acceptance (Objective 4) | `docs/acceptance-criteria.md` |
 | Feedback / monitoring / lifecycle | `docs/feedback-and-review.md`, `docs/model-monitoring.md`, `docs/model-lifecycle.md`, `docs/continuous-learning.md` |
 | Deployment & checklist | `docs/deployment.md`, `docs/deployment-checklist.md` |
 | Reproducibility & limitations | `docs/reproducibility.md`, `docs/limitations.md` |

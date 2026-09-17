@@ -328,9 +328,13 @@ For each trained model dir `ml/models/<version>_<expId>`:
   rows are absent, with an explanatory note — **a number is never fabricated**.
 - **Acceptance verdict** — `evaluate_acceptance` (`evaluate.py:50-106`) compares the
   candidate against the **pre-registered** thresholds in
-  `ml/src/config/acceptance.json` (v1: `test_size_min 30`, `accuracy_min 0.6`,
-  `macro_f1_min 0.6`, `per_class_f1_min 0.4`) — fixed *before* the run, never tuned
-  after results. Verdict is `PASS` / `FAIL` / `INCONCLUSIVE` (the last when
+  `ml/src/config/acceptance.json` (v2: `test_size_min 30`, `accuracy_min 0.6`,
+  `macro_f1_min 0.6`, `macro_precision_min 0.6`, `macro_recall_min 0.6`,
+  `per_class_f1_min 0.4`, `per_class_precision_min 0.4`,
+  `per_class_recall_min 0.4`) — fixed *before* the run, never tuned
+  after results. Anchored to the manuscript's Objective 4 (accuracy, precision,
+  recall, F1); see `docs/acceptance-criteria.md`. Verdict is `PASS` / `FAIL` /
+  `INCONCLUSIVE` (the last when
   `test_size < test_size_min` = no statistically meaningful evidence). Every criterion
   is reported per-row (threshold / observed / met). Written to
   `acceptance.json`, embedded in `metrics.json`, surfaced on the pipeline step, the

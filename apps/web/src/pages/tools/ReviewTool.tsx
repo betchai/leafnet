@@ -1,6 +1,7 @@
 // TOOLS
 import { useEffect, useState } from "react";
-import { toolsApi, ImageRow } from "../../lib/api";
+import { toolsApi, ImageRow, apiFetch } from "../../lib/api";
+import { useAuth } from "../../auth/AuthContext";
 
 const CLASS_OPTIONS = ["healthy", "leaf_rust", "leaf_spot", "leaf_blight"] as const;
 const LABELS: Record<string, string> = {
@@ -19,9 +20,9 @@ const QUEUES = [
 
 /** Expert Review queue — confirm / relabel / uncertain / reject / second opinion. */
 export default function ReviewTool() {
+  const { user } = useAuth();
   const [queueKey, setQueueKey] = useState<string>("ANNOTATED");
   const [queue, setQueue] = useState<ImageRow[]>([]);
-  const [reviewer, setReviewer] = useState("");
   const [notes, setNotes] = useState("");
   const [relabel, setRelabel] = useState<Record<string, string>>({});
   const [msg, setMsg] = useState<string | null>(null);
@@ -40,9 +41,8 @@ export default function ReviewTool() {
   }, [queueKey]);
 
   async function openConfirmDialog() {
-    if (!reviewer) return setMsg("Enter the expert reviewer name first.");
     try {
-      const res = await fetch("/api/review/batch-confirm-preview");
+      const res = await apiFetch("/review/batch-confirm-preview");
       setPreview(await res.json());
       setTargetLabel("");
       setShowDialog(true);
@@ -52,13 +52,12 @@ export default function ReviewTool() {
   }
 
   async function batchConfirm() {
-    if (!reviewer) return setMsg("Enter the expert reviewer name first.");
     setBusy(true);
     try {
-      const res = await fetch("/api/review/batch-confirm", {
+      const res = await apiFetch("/review/batch-confirm", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ actor: reviewer, ...(targetLabel ? { label: targetLabel } : {}) }),
+        body: JSON.stringify(targetLabel ? { label: targetLabel } : {}),
       });
       const d = await res.json();
       setMsg(
@@ -74,10 +73,7 @@ export default function ReviewTool() {
   }
 
   async function act(id: string, action: string, label?: string) {
-    if (!reviewer) return setMsg("Enter the expert reviewer name first.");
     const r = await toolsApi.review(id, {
-      actor: reviewer,
-      actorRole: "expert",
       action,
       ...(label ? { label } : {}),
       ...(notes ? { reason: notes } : {}),
@@ -106,9 +102,7 @@ export default function ReviewTool() {
           ✓ Confirm all pending…
         </button>
         <div className="ml-auto flex items-center gap-2 text-sm">
-          <label>Expert:</label>
-          <input className="border rounded px-2 py-1 w-40" placeholder="reviewer name"
-            value={reviewer} onChange={(e) => setReviewer(e.target.value)} />
+          <span className="text-xs text-gray-400">as {user?.name ?? "you"} (expert)</span>
           <input className="border rounded px-2 py-1 w-52" placeholder="review notes (optional)"
             value={notes} onChange={(e) => setNotes(e.target.value)} />
         </div>
@@ -187,7 +181,7 @@ export default function ReviewTool() {
             <h3 className="font-bold text-lg">Confirm all pending images</h3>
             <p className="text-sm text-gray-600">
               This will approve <strong>{preview?.total ?? 0}</strong> image(s)
-              awaiting expert review ({reviewer || "no reviewer set"}). Each gets its
+              awaiting expert review ({user?.name ?? "you"} as expert). Each gets its
               own audit record. Original predictions are never altered.
             </p>
 

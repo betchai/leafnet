@@ -17,6 +17,7 @@ Status legend: ✅ implemented · ⚠️ partial/conditional · ⬜ not yet (dat
 | Evaluation: Precision | per-class + macro/weighted | same | ✅ pipeline |
 | Evaluation: Recall/Sensitivity | per-class + macro/weighted | same | ✅ pipeline |
 | Evaluation: F1 | per-class + macro/weighted | same | ✅ pipeline |
+| Acceptance criteria (Objective 4) | accuracy, precision, recall, F1 each gated by pre-registered thresholds | `ml/src/config/acceptance.json` v2 → `evaluate_acceptance`; see `docs/acceptance-criteria.md` | ✅ mechanism |
 | Confusion Matrix | 4×4 | CSV + PNG generated | ✅ pipeline |
 | Test-set isolation | held out until formal evaluation | enforced (never loaded in training) | ✅ |
 | Leakage prevention | grouped splitting | session/farm/plant/leaf keys + splitter | ✅ |

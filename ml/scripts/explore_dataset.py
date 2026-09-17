@@ -20,6 +20,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import os
 import sys
 import urllib.request
 from datetime import datetime, timezone
@@ -33,21 +34,25 @@ from src.analysis import eda  # noqa: E402
 REPORTS = ML_ROOT / "reports"
 
 
-def api_get(base: str, path: str) -> dict | list:
-    with urllib.request.urlopen(f"{base}/api{path}", timeout=15) as r:
+def api_get(base: str, path: str, token: str | None = None) -> dict | list:
+    req = urllib.request.Request(f"{base}/api{path}")
+    if token:
+        req.add_header("Authorization", f"Bearer {token}")
+    with urllib.request.urlopen(req, timeout=15) as r:
         return json.load(r)
 
 
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--api", default="http://localhost:4000")
+    ap.add_argument("--token", default=os.environ.get("SERVICE_TOKEN"))
     args = ap.parse_args()
 
     REPORTS.mkdir(exist_ok=True)
 
     # ---- 1. Dataset state via API (workflow source of truth) ----
-    status = api_get(args.api, "/datasets/status")
-    raw = api_get(args.api, "/images?fixtures=include&includeClass=1")
+    status = api_get(args.api, "/datasets/status", args.token)
+    raw = api_get(args.api, "/images?fixtures=include&includeClass=1", args.token)
     all_rows = raw["items"] if isinstance(raw, dict) else raw
 
     def to_row(i: dict) -> dict:
