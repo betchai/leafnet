@@ -1,0 +1,73 @@
+{
+  "num_groups": 0,
+  "duplicate_locked_groups": 0,
+  "ungrouped_images": 2000,
+  "strategy": "image_level_random_fallback_no_grouping_metadata_available",
+  "seed": 42,
+  "final_counts": {
+    "train": 1600,
+    "validation": 200,
+    "test": 200
+  },
+  "background_dist": {
+    "train": {
+      "unknown": 1085,
+      "white_removed": 404,
+      "natural": 111
+    },
+    "validation": {
+      "white_removed": 50,
+      "natural": 123,
+      "unknown": 27
+    },
+    "test": {
+      "white_removed": 50,
+      "natural": 150
+    }
+  },
+  "per_class_counts": {
+    "healthy": {
+      "train": 400,
+      "validation": 50,
+      "test": 50
+    },
+    "leaf_blight": {
+      "train": 400,
+      "test": 50,
+      "validation": 50
+    },
+    "leaf_rust": {
+      "train": 400,
+      "validation": 50,
+      "test": 50
+    },
+    "leaf_spot": {
+      "train": 400,
+      "test": 50,
+      "validation": 50
+    }
+  },
+  "classes_missing_test": [],
+  "classes_missing_val": [],
+  "test_natural_count": 150,
+  "test_all_white_removed": false,
+  "drift": {
+    "train": {
+      "target": 1600,
+      "actual": 1600,
+      "delta": 0
+    },
+    "validation": {
+      "target": 200,
+      "actual": 200,
+      "delta": 0
+    },
+    "test": {
+      "target": 200,
+      "actual": 200,
+      "delta": 0
+    }
+  },
+  "excluded_rows": 0,
+  "dataset_id": "cmu4rz3ns0hjnyclnjrdeucpc"
+}

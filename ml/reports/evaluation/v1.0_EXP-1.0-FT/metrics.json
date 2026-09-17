@@ -1,0 +1,200 @@
+{
+  "status": "OK",
+  "experiment_id": "EXP-1.0-FT",
+  "model_version": "v1.0_EXP-1.0-FT",
+  "dataset_version": "v1.0",
+  "evaluated_at": "2026-09-17T08:20:09.822770+00:00",
+  "integrity": {
+    "ok": true,
+    "problems": [],
+    "test_size": 200,
+    "test_classes": {
+      "healthy": 50,
+      "leaf_rust": 50,
+      "leaf_blight": 50,
+      "leaf_spot": 50
+    },
+    "note": "Target research test size is 200. Small sizes make metrics statistically meaningless."
+  },
+  "test_size": 200,
+  "statistical_warning": "n=200 test images (target 200). Metrics are computed formally but carry no statistical significance at this size.",
+  "metrics": {
+    "accuracy": 0.835,
+    "per_class": {
+      "healthy": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 50
+      },
+      "leaf_rust": {
+        "precision": 0.8,
+        "recall": 0.8,
+        "f1": 0.8,
+        "support": 50
+      },
+      "leaf_spot": {
+        "precision": 0.65,
+        "recall": 0.78,
+        "f1": 0.7091,
+        "support": 50
+      },
+      "leaf_blight": {
+        "precision": 0.95,
+        "recall": 0.76,
+        "f1": 0.8444,
+        "support": 50
+      }
+    },
+    "macro": {
+      "precision": 0.85,
+      "recall": 0.835,
+      "f1": 0.8384
+    },
+    "weighted": {
+      "precision": 0.85,
+      "recall": 0.835,
+      "f1": 0.8384
+    }
+  },
+  "confusion_matrix": {
+    "columns_predicted": [
+      "healthy",
+      "leaf_rust",
+      "leaf_spot",
+      "leaf_blight"
+    ],
+    "rows_actual": {
+      "healthy": [
+        50,
+        0,
+        0,
+        0
+      ],
+      "leaf_rust": [
+        0,
+        40,
+        10,
+        0
+      ],
+      "leaf_spot": [
+        0,
+        9,
+        39,
+        2
+      ],
+      "leaf_blight": [
+        0,
+        1,
+        11,
+        38
+      ]
+    }
+  },
+  "confidence_analysis": {
+    "mean_confidence_correct": 0.8609,
+    "mean_confidence_incorrect": 0.6483,
+    "high_confidence_errors_ge_0.8": 4,
+    "difficult_cases_margin_lt_0.10_or_conf_lt_0.5": 16,
+    "calibration_note": "Calibration (ECE/reliability diagram) intentionally NOT computed: requires meaningful test n."
+  },
+  "distribution_shift": {
+    "domains": {
+      "natural": {
+        "support": 150,
+        "accuracy": 0.78,
+        "macro_f1": 0.5884,
+        "per_class_f1": {
+          "healthy": 0.0,
+          "leaf_rust": 0.8,
+          "leaf_spot": 0.7091,
+          "leaf_blight": 0.8444
+        }
+      },
+      "white_removed": {
+        "support": 50,
+        "accuracy": 1.0,
+        "macro_f1": 0.25,
+        "per_class_f1": {
+          "healthy": 1.0,
+          "leaf_rust": 0.0,
+          "leaf_spot": 0.0,
+          "leaf_blight": 0.0
+        }
+      }
+    },
+    "reference_domain": "white_removed",
+    "ood_domain": "natural",
+    "no_domain_test_data": false,
+    "note": "Natural-background (in-situ) images are OOD relative to the white-removed curated test set. A gap between white_removed and natural accuracy/macro-F1 indicates mild covariate shift."
+  },
+  "_rules_honored": "test set untouched; model weights untouched; single evaluation pass",
+  "acceptance": {
+    "verdict": "PASS",
+    "advisory": true,
+    "sufficient_evidence": true,
+    "met_all": true,
+    "config_version": "2",
+    "criteria": {
+      "test_size_min": 30,
+      "accuracy_min": 0.6,
+      "macro_f1_min": 0.6,
+      "macro_precision_min": 0.6,
+      "macro_recall_min": 0.6,
+      "per_class_f1_min": 0.4,
+      "per_class_precision_min": 0.4,
+      "per_class_recall_min": 0.4
+    },
+    "results": [
+      {
+        "criterion": "test_size",
+        "threshold": 30,
+        "value": 200,
+        "met": true
+      },
+      {
+        "criterion": "accuracy",
+        "threshold": 0.6,
+        "value": 0.835,
+        "met": true
+      },
+      {
+        "criterion": "macro_f1",
+        "threshold": 0.6,
+        "value": 0.8384,
+        "met": true
+      },
+      {
+        "criterion": "macro_precision",
+        "threshold": 0.6,
+        "value": 0.85,
+        "met": true
+      },
+      {
+        "criterion": "macro_recall",
+        "threshold": 0.6,
+        "value": 0.835,
+        "met": true
+      },
+      {
+        "criterion": "worst_class_f1",
+        "threshold": 0.4,
+        "value": 0.7091,
+        "met": true
+      },
+      {
+        "criterion": "worst_class_precision",
+        "threshold": 0.4,
+        "value": 0.65,
+        "met": true
+      },
+      {
+        "criterion": "worst_class_recall",
+        "threshold": 0.4,
+        "value": 0.76,
+        "met": true
+      }
+    ],
+    "note": "Objective criteria met on the held-out test set. This verdict is advisory: an expert still decides whether to promote/activate/use the model."
+  }
+}

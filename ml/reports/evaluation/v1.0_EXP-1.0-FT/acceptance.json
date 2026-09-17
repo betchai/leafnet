@@ -1,0 +1,68 @@
+{
+  "verdict": "PASS",
+  "advisory": true,
+  "sufficient_evidence": true,
+  "met_all": true,
+  "config_version": "2",
+  "criteria": {
+    "test_size_min": 30,
+    "accuracy_min": 0.6,
+    "macro_f1_min": 0.6,
+    "macro_precision_min": 0.6,
+    "macro_recall_min": 0.6,
+    "per_class_f1_min": 0.4,
+    "per_class_precision_min": 0.4,
+    "per_class_recall_min": 0.4
+  },
+  "results": [
+    {
+      "criterion": "test_size",
+      "threshold": 30,
+      "value": 200,
+      "met": true
+    },
+    {
+      "criterion": "accuracy",
+      "threshold": 0.6,
+      "value": 0.835,
+      "met": true
+    },
+    {
+      "criterion": "macro_f1",
+      "threshold": 0.6,
+      "value": 0.8384,
+      "met": true
+    },
+    {
+      "criterion": "macro_precision",
+      "threshold": 0.6,
+      "value": 0.85,
+      "met": true
+    },
+    {
+      "criterion": "macro_recall",
+      "threshold": 0.6,
+      "value": 0.835,
+      "met": true
+    },
+    {
+      "criterion": "worst_class_f1",
+      "threshold": 0.4,
+      "value": 0.7091,
+      "met": true
+    },
+    {
+      "criterion": "worst_class_precision",
+      "threshold": 0.4,
+      "value": 0.65,
+      "met": true
+    },
+    {
+      "criterion": "worst_class_recall",
+      "threshold": 0.4,
+      "value": 0.76,
+      "met": true
+    }
+  ],
+  "note": "Objective criteria met on the held-out test set. This verdict is advisory: an expert still decides whether to promote/activate/use the model."
+}

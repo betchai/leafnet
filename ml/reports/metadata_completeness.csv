@@ -1,0 +1,16 @@
+field,kind,populated,missing,pct_complete
+source,required,200,0,100.0
+source_type,required,200,0,100.0
+license,required,0,200,0.0
+capture_date,optional,0,200,0.0
+location,optional,0,200,0.0
+cultivar,optional,0,200,0.0
+leaf_age,optional,0,200,0.0
+growth_stage,optional,0,200,0.0
+lighting_condition,optional,0,200,0.0
+camera_type,optional,0,200,0.0
+orientation,optional,0,200,0.0
+plant_id,optional,0,200,0.0
+leaf_id,optional,0,200,0.0
+farm_id,optional,0,200,0.0
+collection_session_id,optional,0,200,0.0

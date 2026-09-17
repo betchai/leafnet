@@ -1,0 +1,30 @@
+{
+  "domains": {
+    "natural": {
+      "support": 150,
+      "accuracy": 0.78,
+      "macro_f1": 0.5884,
+      "per_class_f1": {
+        "healthy": 0.0,
+        "leaf_rust": 0.8,
+        "leaf_spot": 0.7091,
+        "leaf_blight": 0.8444
+      }
+    },
+    "white_removed": {
+      "support": 50,
+      "accuracy": 1.0,
+      "macro_f1": 0.25,
+      "per_class_f1": {
+        "healthy": 1.0,
+        "leaf_rust": 0.0,
+        "leaf_spot": 0.0,
+        "leaf_blight": 0.0
+      }
+    }
+  },
+  "reference_domain": "white_removed",
+  "ood_domain": "natural",
+  "no_domain_test_data": false,
+  "note": "Natural-background (in-situ) images are OOD relative to the white-removed curated test set. A gap between white_removed and natural accuracy/macro-F1 indicates mild covariate shift."
+}
