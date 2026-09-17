@@ -26,8 +26,9 @@ ml/data/validation/*
 !ml/data/validation/.gitkeep
 ml/data/test/*
 !ml/data/test/.gitkeep
-ml/models/*
-!ml/models/.gitkeep
+
+# Trained models are versioned (kept in git) so a fresh pull can run inference
+# without retraining. Only transient checkpoints/cache are excluded if added later.
 
 # Uploads
 uploads/

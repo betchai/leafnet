@@ -1,0 +1,6 @@
+{
+  "healthy": 0,
+  "leaf_rust": 1,
+  "leaf_spot": 2,
+  "leaf_blight": 3
+}
