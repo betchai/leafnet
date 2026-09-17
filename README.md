@@ -89,8 +89,21 @@ npm install               # installs web + api workspaces
 ### 2. Database
 
 ```bash
-npm run db:migrate        # creates tables from prisma/schema.prisma
+npm run db:migrate        # creates tables from prisma/schema.prisma (incl. auth)
 ```
+
+### 2b. Populate everything (recommended — zero manual data entry)
+
+Seeds demo users, all 2,000 dataset images, the v1.0 dataset row, and the
+registered model versions (metrics + acceptance verdict) from the committed
+artifacts, then writes `ml/models/active.json`:
+
+```bash
+npm run seed:everything --workspace @mulberry/api
+```
+
+Idempotent — safe to re-run. Honors `UPLOAD_DIRECTORY` and `ACTIVE_MODEL`
+(e.g. `ACTIVE_MODEL=v1.0_EXP-1.0-FT`).
 
 ### 3. Start the ML service (port 8000)
 

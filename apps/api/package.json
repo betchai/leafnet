@@ -9,7 +9,8 @@
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "seed:users": "tsx src/seedUsers.ts"
+    "seed:users": "tsx src/seedUsers.ts",
+    "seed:everything": "tsx src/seedEverything.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.2.0",
