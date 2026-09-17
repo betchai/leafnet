@@ -102,8 +102,10 @@ artifacts, then writes `ml/models/active.json`:
 npm run seed:everything --workspace @mulberry/api
 ```
 
-Idempotent — safe to re-run. Honors `UPLOAD_DIRECTORY` and `ACTIVE_MODEL`
-(e.g. `ACTIVE_MODEL=v1.0_EXP-1.0-FT`).
+Idempotent — safe to re-run. Honors `UPLOAD_DIRECTORY`, `ACTIVE_MODEL`
+(e.g. `ACTIVE_MODEL=v1.0_EXP-1.0-FT`), and `SEED_DATA_DIRS` (absolute,
+comma-separated source-photo folders). The photos are intentionally kept out of
+git; point `SEED_DATA_DIRS` at wherever you store them.
 
 ### 3. Start the ML service (port 8000)
 

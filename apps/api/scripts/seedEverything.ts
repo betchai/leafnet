@@ -27,6 +27,15 @@ const uploadDir = resolve(repoRoot, process.env.UPLOAD_DIRECTORY ?? "uploads");
 
 const ACTIVE_MODEL = process.env.ACTIVE_MODEL ?? "v1.0_EXP-1.0-FT";
 
+// Directories scanned for source photos. Defaults to the repo-local folders;
+// override with SEED_DATA_DIRS (absolute, comma-separated) when the photos are
+// kept outside the git repo.
+const SEED_DATA_DIRS = (process.env.SEED_DATA_DIRS ?? "dataset,RAW UNEDITED DATA")
+  .split(",")
+  .map((d) => d.trim())
+  .filter(Boolean)
+  .map((d) => (d.startsWith("/") ? d : resolve(repoRoot, d)));
+
 const prisma = new PrismaClient();
 
 const DEMO_USERS: Array<{ name: string; email: string; password: string; role: Role }> = [
@@ -43,6 +52,10 @@ function sha256File(filePath: string): Promise<string> {
     s.on("data", (c) => h.update(c));
     s.on("end", () => resolvePromise(h.digest("hex")));
   });
+}
+
+async function isDir(p: string): Promise<boolean> {
+  return !!(await stat(p).catch(() => null))?.isDirectory();
 }
 
 async function walkImgs(dir: string): Promise<string[]> {
@@ -116,8 +129,8 @@ async function main() {
 
   console.log("[seed] indexing source photos by sha256 (this may take a minute)...");
   const sourceByHash = new Map<string, string>();
-  for (const dir of ["dataset", "RAW UNEDITED DATA"]) {
-    const files = await walkImgs(join(repoRoot, dir));
+  for (const dir of SEED_DATA_DIRS) {
+    const files = await walkImgs(dir);
     for (const f of files) {
       const h = await sha256File(f);
       if (rowsByHash.has(h) && !sourceByHash.has(h)) sourceByHash.set(h, f);
