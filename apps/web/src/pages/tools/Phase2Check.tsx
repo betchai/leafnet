@@ -29,7 +29,9 @@ const TARGETS: Record<string, number> = {
   leaf_rust: 500,
   leaf_spot: 500,
   leaf_blight: 500,
+  not_mulberry: 500,
 };
+const TOTAL_TARGET = Object.values(TARGETS).reduce((a, b) => a + b, 0);
 
 export default function Phase2Validation() {
   const [config, setConfig] = useState<ClassConfig | null>(null);
@@ -71,7 +73,7 @@ export default function Phase2Validation() {
   const totalActual = Object.values(counts).reduce((a, b) => a + Math.max(0, b), 0);
   const taxonomyOk =
     JSON.stringify(classes.map((c) => c.key).sort()) ===
-    JSON.stringify(["healthy", "leaf_blight", "leaf_rust", "leaf_spot"].sort());
+    JSON.stringify(["healthy", "leaf_blight", "leaf_rust", "leaf_spot", "not_mulberry"].sort());
 
   return (
     <div className="space-y-8">
@@ -84,11 +86,11 @@ export default function Phase2Validation() {
       {/* Check 1: approved taxonomy */}
       <section className="rounded-lg bg-white border border-gray-200 p-5">
         <h3 className="font-semibold flex items-center gap-2">
-          1. Approved four-class taxonomy
+          1. Approved five-class taxonomy
           <Badge ok={taxonomyOk} />
         </h3>
         <p className="text-sm text-gray-500 mt-1">
-          Expected keys: healthy · leaf_rust · leaf_spot · leaf_blight (single-label)
+          Expected keys: healthy · leaf_rust · leaf_spot · leaf_blight · not_mulberry (single-label)
         </p>
         <p className="text-sm mt-2 font-mono text-xs bg-gray-50 rounded p-2 inline-block">
           {classes.map((c) => c.key).join(" · ")}
@@ -127,14 +129,14 @@ export default function Phase2Validation() {
             ))}
             <tr>
               <td className="pt-3 font-medium">Total</td>
-              <td className="pt-3">2000</td>
+              <td className="pt-3">{TOTAL_TARGET}</td>
               <td className="pt-3">{totalActual}</td>
               <td className="hidden sm:table-cell pt-3" />
             </tr>
           </tbody>
         </table>
         <p className="text-xs text-gray-400 mt-2">
-          Split target once populated: train 1600 / validation 200 / test 200 (80/10/10).
+          Split target once populated: train {Math.round(TOTAL_TARGET * 0.8)} / validation {Math.round(TOTAL_TARGET * 0.1)} / test {Math.round(TOTAL_TARGET * 0.1)} (80/10/10).
         </p>
       </section>
 

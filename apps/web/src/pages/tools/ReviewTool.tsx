@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { toolsApi, ImageRow, apiFetch } from "../../lib/api";
 import { useAuth } from "../../auth/AuthContext";
 
-const CLASS_OPTIONS = ["healthy", "leaf_rust", "leaf_spot", "leaf_blight"] as const;
+const CLASS_OPTIONS = ["healthy", "leaf_rust", "leaf_spot", "leaf_blight", "not_mulberry"] as const;
 const LABELS: Record<string, string> = {
   healthy: "Healthy",
   leaf_rust: "Leaf Rust",

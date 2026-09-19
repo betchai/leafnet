@@ -112,7 +112,8 @@ app = FastAPI(
     title="LEAFNET ML Inference Service",
     version="1.0.0-phase7",
     description=(
-        "Four-class mulberry leaf visual classification. Confidence values are "
+        "Mulberry leaf visual classification (5 classes: 4 mulberry conditions + "
+        "not_mulberry rejection). Confidence values are "
         "predicted-class probabilities (softmax), NOT calibrated probabilities of "
         "correctness and NOT diagnoses."
     ),

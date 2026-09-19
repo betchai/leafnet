@@ -7,8 +7,8 @@ import { assertValidClassKey } from "../domain/taxonomy.js";
 import {
   validatePreliminaryAnnotation,
   validateTransition,
-  ReviewAction,
 } from "../domain/workflow.js";
+import type { ReviewAction } from "../domain/workflow.js";
 
 const prisma = new PrismaClient();
 const router = Router();

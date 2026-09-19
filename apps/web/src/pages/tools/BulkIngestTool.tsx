@@ -2,7 +2,7 @@
 import { useRef, useState } from "react";
 import { apiFetch } from "../../lib/api";
 
-const CLASS_OPTIONS = ["", "healthy", "leaf_rust", "leaf_spot", "leaf_blight"] as const;
+const CLASS_OPTIONS = ["", "healthy", "leaf_rust", "leaf_spot", "leaf_blight", "not_mulberry"] as const;
 
 interface Result {
   ingested: number;

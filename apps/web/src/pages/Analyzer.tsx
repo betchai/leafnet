@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { api, ClassConfig, ExplanationCriterion, PredictionHistoryRow } from "../lib/api";
+import { api, apiFetch, ClassConfig, ExplanationCriterion, PredictionHistoryRow } from "../lib/api";
 
 const MAX_SIZE_MB = 20;
 const ACCEPTED = ["image/jpeg", "image/png"];
@@ -83,10 +83,15 @@ export default function Analyzer() {
   const [explaining, setExplaining] = useState(false);
   const [explanation, setExplanation] = useState<Explanation | null>(null);
   const [explainError, setExplainError] = useState<string | null>(null);
+  const [servedRejection, setServedRejection] = useState<boolean | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     api.classes().then(setClasses).catch(() => {});
+    apiFetch("/predictions/served")
+      .then((r) => r.json())
+      .then((d) => setServedRejection(Boolean(d.rejectionEnabled)))
+      .catch(() => setServedRejection(null));
     refreshHistory();
   }, []);
 
@@ -198,6 +203,16 @@ export default function Analyzer() {
           </span>
         )}
       </section>
+
+      {/* Rejection-class capability notice */}
+      {servedRejection === false && (
+        <section className="rounded-lg bg-amber-50 border border-amber-200 p-4 text-sm text-amber-800">
+          <strong>Rejection class not active yet.</strong> The deployed model only
+          predicts the four mulberry conditions, so a leaf that is not mulberry
+          will still be classified into one of them. This activates once a 5-class
+          model is trained, approved and promoted in Model settings.
+        </section>
+      )}
 
       {/* Step 1: upload */}
       <section className="rounded-lg bg-white border border-gray-200 p-5 space-y-3">

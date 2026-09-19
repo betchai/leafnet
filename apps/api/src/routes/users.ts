@@ -7,7 +7,8 @@ import { Router } from "express";
 import { PrismaClient, Role, UserStatus } from "@prisma/client";
 import { hashPassword } from "../auth/passwords.js";
 import { authorize } from "../auth/middleware.js";
-import { ROLES, Role as AppRole } from "../rbac/permissions.js";
+import { ROLES } from "../rbac/permissions.js";
+import type { Role as AppRole } from "../rbac/permissions.js";
 
 const prisma = new PrismaClient();
 const router = Router();

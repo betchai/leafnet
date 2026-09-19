@@ -143,6 +143,42 @@ function rateLimited(ip: string): boolean {
  * Orchestrates: fetch image → forward to ML service (timeout + validation)
  * → persist prediction with full probability distribution.
  */
+// Whether the currently SERVED model already knows the not_mulberry rejection
+// class. Cached briefly so the Analyzer banner doesn't hit the ML service per
+// page view / analysis.
+let servedCache: { at: number; classes: string[]; version: string | null } | null = null;
+
+async function servedModelClasses(
+  activeVersion: string | null
+): Promise<{ classes: string[]; version: string | null }> {
+  const base = process.env.ML_SERVICE_URL;
+  if (!base) return { classes: [], version: activeVersion };
+  if (servedCache && Date.now() - servedCache.at < 60_000) {
+    return { classes: servedCache.classes, version: servedCache.version ?? activeVersion };
+  }
+  try {
+    const res = await fetch(`${base}/model`, { signal: AbortSignal.timeout(4000) });
+    if (res.ok) {
+      const info = (await res.json()) as {
+        version_id?: string;
+        classes?: Record<string, unknown> | unknown[];
+      };
+      const raw = info.classes;
+      const classes = Array.isArray(raw)
+        ? raw.map(String)
+        : raw && typeof raw === "object"
+          ? Object.keys(raw as Record<string, unknown>)
+          : [];
+      const version = info.version_id ?? null;
+      servedCache = { at: Date.now(), classes, version };
+      return { classes, version: version ?? activeVersion };
+    }
+  } catch {
+    // ML unreachable — fall back to whatever we cached, or nothing.
+  }
+  return { classes: servedCache?.classes ?? [], version: servedCache?.version ?? activeVersion };
+}
+
 router.post("/", authorize("analyze"), async (req, res) => {
   const ip = req.ip ?? "unknown";
   if (rateLimited(ip)) {
@@ -217,6 +253,22 @@ router.get("/", authorize("analyze"), async (req, res) => {
       createdAt: p.createdAt,
     })),
     count: predictions.length,
+  });
+});
+
+// GET /api/predictions/served — does the served model support the rejection
+// class? Lets the Analyzer warn when a legacy 4-class model is still live.
+router.get("/served", authorize("analyze"), async (_req, res) => {
+  const active = await prisma.modelVersion.findFirst({
+    where: { isActive: true },
+    orderBy: { createdAt: "desc" },
+  });
+  const { classes, version } = await servedModelClasses(active?.version ?? null);
+  res.json({
+    modelVersion: version,
+    servedClassCount: classes.length,
+    classes,
+    rejectionEnabled: classes.includes("not_mulberry"),
   });
 });
 

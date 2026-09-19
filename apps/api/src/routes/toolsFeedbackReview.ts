@@ -5,8 +5,8 @@ import { PrismaClient } from "@prisma/client";
 import { authorize } from "../auth/middleware.js";
 import {
   validateFeedbackReview, validateLifecycleTransition, canActivate,
-  ReviewAction,
 } from "../domain/lifecycle.js";
+import type { ReviewAction } from "../domain/lifecycle.js";
 import { assertValidClassKey } from "../domain/taxonomy.js";
 
 const prisma = new PrismaClient();
@@ -246,6 +246,7 @@ router.get("/monitoring/summary", authorize("monitoring"), async (_req, res) => 
     const g = (byModel[key] ??= {
       predictions: 0, avg_confidence: null, low_confidence_rate: null,
       feedback_count: 0, disagreements: 0, verified_corrections: 0,
+      verified_total: 0, verified_correct: 0,
       class_distribution: {} as Record<string, number>,
       confusion_pairs: {} as Record<string, number>,
       lifecycle: p.modelVersion?.lifecycleStatus ?? null,
@@ -255,8 +256,11 @@ router.get("/monitoring/summary", authorize("monitoring"), async (_req, res) => 
     if (p.feedback) {
       g.feedback_count++;
       if (p.feedback.verdict === "disagree") g.disagreements++;
-      if (p.feedback.reviewStatus === "VERIFIED" && p.feedback.isCorrect === false)
-        g.verified_corrections++;
+      if (p.feedback.reviewStatus === "VERIFIED") {
+        g.verified_total++;
+        if (p.feedback.isCorrect === true) g.verified_correct++;
+        if (p.feedback.isCorrect === false) g.verified_corrections++;
+      }
     }
   }
   for (const key of Object.keys(byModel)) {
@@ -284,9 +288,42 @@ router.get("/monitoring/summary", authorize("monitoring"), async (_req, res) => 
   const verified = preds.filter((p) => p.feedback?.reviewStatus === "VERIFIED");
   const verifiedCorrect = verified.filter((p) => p.feedback?.isCorrect === true);
 
+  // Lab (held-out acceptance) vs field (verified feedback) comparison across
+  // every model version — lab-only and field-only models included so reviewers
+  // see coverage gaps, not just overlap.
+  const modelRows = await prisma.modelVersion.findMany({ include: { dataset: true } });
+  const labVsField = modelRows.map((m) => {
+    const f = byModel[m.version];
+    const verifiedTotal = f?.verified_total ?? 0;
+    const verifiedCorrectN = f?.verified_correct ?? 0;
+    return {
+      version: m.version,
+      is_active: m.isActive,
+      lifecycle_status: m.lifecycleStatus,
+      dataset_version: m.dataset?.version ?? null,
+      lab: {
+        accuracy: m.accuracy,
+        f1_score: m.f1Score,
+        acceptance_verdict: m.acceptanceVerdict ?? null,
+      },
+      field: {
+        predictions: f?.predictions ?? 0,
+        feedback_count: f?.feedback_count ?? 0,
+        disagreements: f?.disagreements ?? 0,
+        verified_total: verifiedTotal,
+        verified_accuracy: verifiedTotal > 0
+          ? Math.round((100 * verifiedCorrectN) / verifiedTotal) : null,
+        verified_wrong: f?.verified_corrections ?? 0,
+        average_confidence: f?.avg_confidence ?? null,
+        low_confidence_rate: f?.low_confidence_rate ?? null,
+      },
+    };
+  });
+
   res.json({
     total_predictions: preds.length,
     baseline_note: "Baseline being established — no alert thresholds are validated yet.",
+    lab_vs_field: labVsField,
     overall: {
       avg_confidence: preds.length && preds.filter(p=>p.confidence!=null).length
         ? Math.round((preds.reduce((a,p)=>a+(p.confidence??0),0)/preds.filter(p=>p.confidence!=null).length)*1000)/1000

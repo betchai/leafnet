@@ -8,21 +8,21 @@ import { fileURLToPath } from "node:url";
 const ROOT = path.resolve(process.cwd(), "../..");
 
 describe("taxonomy enforcement", () => {
-  it("loads exactly the four approved classes", () => {
+  it("loads exactly the five approved classes", () => {
     const classes = getClasses();
     expect(classes.map((c) => c.key).sort()).toEqual(
-      ["healthy", "leaf_blight", "leaf_rust", "leaf_spot"].sort()
+      ["healthy", "leaf_blight", "leaf_rust", "leaf_spot", "not_mulberry"].sort()
     );
   });
 
   it("accepts each approved class key", () => {
-    for (const key of ["healthy", "leaf_rust", "leaf_spot", "leaf_blight"]) {
+    for (const key of ["healthy", "leaf_rust", "leaf_spot", "leaf_blight", "not_mulberry"]) {
       expect(isValidClassKey(key)).toBe(true);
     }
   });
 
   it("rejects arbitrary / legacy class names", () => {
-    for (const bad of ["diseased", "nutrient_deficient", "damaged", "unknown", "", "Leaf Rust", "rust"]) {
+    for (const bad of ["diseased", "nutrient_deficient", "damaged", "unknown", "", "Leaf Rust", "rust", "not_a_mulberry"]) {
       expect(isValidClassKey(bad)).toBe(false);
     }
   });
@@ -31,7 +31,7 @@ describe("taxonomy enforcement", () => {
     const raw = JSON.parse(
       readFileSync(path.resolve(ROOT, "ml/src/config/classes.json"), "utf-8")
     );
-    expect(raw.classes).toHaveLength(4);
+    expect(raw.classes).toHaveLength(5);
     expect(raw.task.single_label ?? raw.task.type).toContain("single_label");
   });
 });

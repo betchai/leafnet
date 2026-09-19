@@ -1,10 +1,10 @@
 {
   "datasetVersion": null,
-  "_comment": "LEAFNET approved four-class, single-label visual classification taxonomy. DO NOT change these classes without formal research-methodology approval. Sources are cited per class; see docs/dataset.md and Phase2_Status.md.",
+  "_comment": "LEAFNET approved five-class, single-label visual classification taxonomy: the four mulberry conditions PLUS a not_mulberry rejection class, so non-mulberry inputs are excluded instead of force-fit into a mulberry class. DO NOT change these classes without formal research-methodology approval. Sources are cited per class; see docs/dataset.md and Phase2_Status.md.",
   "task": {
     "type": "single_label_image_classification",
-    "numClasses": 4,
-    "note": "Visual classification only - NOT biological diagnosis."
+    "numClasses": 5,
+    "note": "Visual classification only - NOT biological diagnosis. not_mulberry is a rejection class (OOD/exclusion), not a diagnosis."
   },
   "classes": [
     {
@@ -141,6 +141,30 @@
       ],
       "definition_confidence": "medium",
       "research_note": "FLAGGED RESEARCH RISK: literature does not provide a single crisp visual definition separating blight from severe leaf spot on mulberry. EXPERT ADJUDICATION (Sep 2026): a domain expert reviewed all 100 test-lot LB_A leaves (labeled contact sheet at /tmp/LB_A_review) and CONFIRMED ALL are leaf blight - many are early/mild blight (single large or few discrete necrotic lesions; median necrotic coverage 0.032, p90 0.085), so halo/angular/water-soaked mild lesions must be weighed as blight even without gross coalescence. FAILURE MODE IS WITHIN-CLASS SEVERITY SHIFT, NOT MISLABEL: blight training lots C-E span mild-to-severe (median cov 0.10-0.12, p90 0.34-0.40) while test lot LB_A is uniform-low (p90 0.085) and collapses into leaf_spot (80/100). See Known Limitations in docs/dataset.md."
+    },
+    {
+      "key": "not_mulberry",
+      "id": 4,
+      "name": "not_mulberry",
+      "label": "Not Mulberry",
+      "display_name": "Not Mulberry / Other",
+      "category": "reject",
+      "description": "Rejection class: the image subject is NOT a mulberry (Morus) leaf - a leaf of a different plant species, a non-leaf image, or an image with no usable leaf. Keeps out-of-taxonomy inputs out of the mulberry classification instead of force-fitting them into one of the four mulberry classes.",
+      "enabled": true,
+      "visual_indicators": [
+        "Leaf shape/margin clearly unlike Morus (e.g. compound, needle-like, deeply lobed without mulberry's serrate oval-to-cordate form)",
+        "A different plant part only (fruit, flower, stem, bark, whole plant) with no leaf",
+        "No leaf present at all (blank frame, hand, substrate, or off-topic image)",
+        "Species-level markers that rule out Morus beyond reasonable doubt"
+      ],
+      "annotation_guidance": "Use not_mulberry ONLY when you are confident the subject is not a mulberry leaf, or that no leaf is present. A damaged, senescent, or difficult-to-identify but plausibly mulberry leaf belongs in one of the four mulberry classes (or the needs_review path) - not_mulberry is an exclusion class for genuinely non-mulberry input, not a low-confidence escape hatch.",
+      "confounding_conditions": [
+        "Severely damaged/senescent mulberry leaves can look foreign",
+        "Mulberry leaf shape varies across cultivars, ages, and shoots",
+        "Extreme close-ups or heavy blur may hide species-identifying features"
+      ],
+      "definition_confidence": "high",
+      "research_note": "ADDED (Sep 2026) as the OOD rejection class. Deployed 4-class models cannot predict it; a 5-class retrain (including real non-mulberry negatives) is required before the rejection behavior is active in production. Until then, predictions are the four mulberry classes only."
     }
   ]
 }

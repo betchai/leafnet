@@ -15,8 +15,31 @@ interface Summary {
     verified_accuracy_note: string;
   };
   by_model: Record<string, any>;
+  lab_vs_field: LabVsField[];
   real_world_confusion_pairs_verified: Record<string, number>;
   review_backlog: number;
+}
+
+interface LabVsField {
+  version: string;
+  is_active: boolean;
+  lifecycle_status: string;
+  dataset_version: string | null;
+  lab: {
+    accuracy: number | null;
+    f1_score: number | null;
+    acceptance_verdict: string | null;
+  };
+  field: {
+    predictions: number;
+    feedback_count: number;
+    disagreements: number;
+    verified_total: number;
+    verified_accuracy: number | null;
+    verified_wrong: number;
+    average_confidence: number | null;
+    low_confidence_rate: number | null;
+  };
 }
 
 export default function MonitoringTool() {
@@ -54,6 +77,58 @@ export default function MonitoringTool() {
           </p>
         ) : (
           <p className="text-sm text-gray-500">{s.overall.verified_accuracy_note}</p>
+        )}
+      </section>
+
+      <section className="rounded-lg bg-white border p-4">
+        <h3 className="font-semibold text-sm mb-2">Model quality vs field performance</h3>
+        <p className="text-xs text-gray-500 mb-3">
+          Lab bars come from the held-out acceptance run (metrics.json). Field bars come from
+          expert-verified feedback — the ratio of user-"agree" among cases an expert reviewed.
+          Blank field bars mean no verified feedback yet for that version.
+        </p>
+        {(s.lab_vs_field ?? []).length === 0 ? (
+          <p className="text-sm text-gray-500">No model versions exist yet.</p>
+        ) : (
+          <div className="space-y-4">
+            {s.lab_vs_field.map((m) => {
+              const lab = m.lab.accuracy != null ? m.lab.accuracy * 100 : null;
+              return (
+                <div key={m.version} className="border border-gray-100 rounded-lg p-3 space-y-2">
+                  <div className="flex flex-wrap items-center gap-2 text-sm">
+                    <span className="font-semibold">{m.version}</span>
+                    <VerdictBadge verdict={m.lab.acceptance_verdict} />
+                    {m.is_active && (
+                      <span className="px-1.5 py-0.5 rounded bg-leaf-100 text-leaf-800 text-[11px] font-medium">
+                        ACTIVE
+                      </span>
+                    )}
+                    <span className="text-[11px] text-gray-400">
+                      {m.lifecycle_status} · dataset {m.dataset_version ?? "—"} · f1{" "}
+                      {m.lab.f1_score != null ? (m.lab.f1_score * 100).toFixed(1) : "—"}%
+                    </span>
+                  </div>
+                  <BarRow label="Lab (held-out)" pct={lab} note={lab != null ? `${lab.toFixed(1)}%` : "no run"} color="bg-slate-600" />
+                  <BarRow
+                    label="Field (verified feedback)"
+                    pct={m.field.verified_accuracy}
+                    note={
+                      m.field.verified_total > 0
+                        ? `${m.field.verified_accuracy}% · n=${m.field.verified_total} (${m.field.verified_wrong} wrong)`
+                        : "no verified feedback yet"
+                    }
+                    color="bg-sky-600"
+                  />
+                  <p className="text-[11px] text-gray-400">
+                    {m.field.predictions} predictions · {m.field.feedback_count} feedback ·{" "}
+                    {m.field.disagreements} disagreements · avg conf{" "}
+                    {m.field.average_confidence ?? "—"} · low-conf{" "}
+                    {m.field.low_confidence_rate ?? "—"}%
+                  </p>
+                </div>
+              );
+            })}
+          </div>
         )}
       </section>
 
@@ -101,5 +176,28 @@ function Card({ label, value }: { label: string; value: string }) {
       <p className="text-xs text-gray-500 truncate">{label}</p>
       <p className="font-bold text-xl">{value}</p>
     </div>
+  );
+}
+function BarRow({ label, pct, note, color }: { label: string; pct: number | null; note: string; color: string }) {
+  return (
+    <div className="flex items-center gap-2 text-xs">
+      <span className="w-44 shrink-0 text-gray-500">{label}</span>
+      <div className="flex-1 h-3 rounded bg-gray-100 overflow-hidden">
+        {pct != null && (
+          <div className={`h-full ${color}`} style={{ width: `${Math.min(100, Math.max(0, pct))}%` }} />
+        )}
+      </div>
+      <span className="w-48 shrink-0 text-right text-gray-400">{note}</span>
+    </div>
+  );
+}
+function VerdictBadge({ verdict }: { verdict: string | null }) {
+  if (!verdict) return <span className="text-[11px] text-gray-400">no verdict</span>;
+  const style =
+    verdict === "PASS" ? "bg-green-100 text-green-800"
+    : verdict === "FAIL" ? "bg-red-100 text-red-800"
+    : "bg-amber-100 text-amber-800";
+  return (
+    <span className={`px-1.5 py-0.5 rounded-full text-[11px] font-medium ${style}`}>{verdict}</span>
   );
 }

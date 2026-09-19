@@ -35,9 +35,9 @@ function loadConfig(): { classes: ClassDef[]; keys: Set<string> } {
   const classes: ClassDef[] = raw.classes.filter(
     (c: ClassDef & { enabled?: boolean }) => c.enabled !== false
   );
-  if (classes.length !== 4) {
+  if (classes.length !== 5) {
     throw new Error(
-      `Taxonomy integrity violation: expected exactly 4 enabled classes, found ${classes.length}`
+      `Taxonomy integrity violation: expected exactly 5 enabled classes (4 mulberry conditions + not_mulberry rejection), found ${classes.length}`
     );
   }
   return (cached = { classes, keys: new Set(classes.map((c) => c.key)) });

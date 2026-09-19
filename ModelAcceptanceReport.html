@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Model Acceptance Report — Mulberry Leaf Intelligence</title>
+<style>
+  :root{
+    --ink:#0f172a; --mut:#64748b; --line:#e2e8f0; --bg:#f1f5f9;
+    --emerald:#10b981; --emerald-d:#059669; --sky:#0ea5e9; --indigo:#6366f1;
+    --amber:#f59e0b; --rose:#f43f5e; --card:#ffffff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:linear-gradient(180deg,#f8fafc 0%,var(--bg) 260px);color:var(--ink);-webkit-font-smoothing:antialiased}
+  header.hero{background:linear-gradient(120deg,#0f172a 0%,#1e293b 55%,#134e4a 100%);color:#e2e8f0;padding:40px 24px 52px}
+  .hero-inner{max-width:1040px;margin:0 auto}
+  header.hero .eyebrow{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#94a3b8;font-weight:600}
+  header.hero h1{margin:8px 0 6px;font-size:26px;color:#fff;font-weight:750;letter-spacing:-.01em}
+  header.hero p.sub{margin:0;color:#94a3b8;font-size:14px;max-width:720px;line-height:1.55}
+  .meta-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+  .meta-chips .chip{font-size:12px;color:#cbd5e1;background:rgba(148,163,184,.12);border:1px solid rgba(148,163,184,.25);padding:5px 10px;border-radius:999px}
+  .wrap{max-width:1040px;margin:-26px auto 64px;padding:0 24px}
+  .tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}
+  .tabs button{cursor:pointer;border:1px solid var(--line);background:rgba(255,255,255,.7);backdrop-filter:blur(6px);color:#475569;font-weight:650;font-size:13px;padding:9px 16px;border-radius:12px;transition:.15s}
+  .tabs button:hover{background:#fff;box-shadow:0 4px 14px rgba(15,23,42,.08)}
+  .tabs button.on{background:#0f172a;border-color:#0f172a;color:#fff;box-shadow:0 8px 20px rgba(15,23,42,.22)}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:22px}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+  .kpi .lbl{font-size:11px;color:var(--mut);font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+  .kpi .val{font-size:21px;font-weight:750;margin-top:3px;letter-spacing:-.02em}
+  .kpi .note{font-size:11px;color:#94a3b8;margin-top:2px}
+  .pill{display:inline-block;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;letter-spacing:.06em}
+  .pill.pass{background:#d1fae5;color:#047857}
+  .pill.fail{background:#ffe4e6;color:#be123c}
+  .pill.inc{background:#fef3c7;color:#b45309}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:0 1px 2px rgba(15,23,42,.04),0 10px 30px rgba(15,23,42,.06);padding:22px 22px 26px;margin-bottom:20px}
+  .card h2{font-size:15px;font-weight:750;margin:0 0 2px;letter-spacing:-.01em}
+  .card .deck{color:var(--mut);font-size:12.5px;margin:0 0 6px;line-height:1.5}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:#475569;margin:2px 0 10px}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:10px;height:10px;border-radius:3px;display:inline-block}
+  .chartcard{background:#fff;border:1px solid var(--line);border-radius:14px;padding:10px 6px 4px}
+  .crit-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px;margin-top:14px}
+  .crit{display:flex;justify-content:space-between;align-items:center;background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:12.5px}
+  .crit .ok{color:#059669;font-weight:700}
+  .crit .no{color:#e11d48;font-weight:700}
+  .crit .th{color:var(--mut)}
+  svg{display:block;width:100%;height:auto}
+  .tip{position:fixed;pointer-events:none;background:#0f172a;color:#e2e8f0;font-size:12px;line-height:1.5;padding:8px 11px;border-radius:9px;box-shadow:0 10px 24px rgba(15,23,42,.28);opacity:0;transition:opacity .12s;z-index:50;max-width:280px}
+  .tip b{color:#fff}
+  .tip .m{color:#34d399;font-weight:700}.tip .x{color:#fb7185;font-weight:700}
+  footer.note{color:var(--mut);font-size:12px;max-width:1040px;margin:26px auto 0;padding:0 24px;line-height:1.6}
+  .modelname{display:flex;align-items:center;gap:10px}
+  .modelname .ver{font-weight:750} .modelname .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="hero-inner">
+    <div class="eyebrow">Mulberry Leaf Intelligence · Research Deliverable</div>
+    <h1>Model Acceptance Report</h1>
+    <p class="sub">Held-out evaluation against the pre-registered Objective-4 acceptance criteria (acceptance config v2), plus per-class performance for every evaluated model version. Thresholds are fixed before training runs and are never tuned after results exist; every verdict is advisory until an expert promotes the model.</p>
+    <div class="meta-chips">
+      <span class="chip">Objective 4 · accuracy, precision, recall, F1</span>
+      <span class="chip">Acceptance config v2</span>
+      <span class="chip">Dataset v1.0 · held-out test n=200</span>
+      <span class="chip">Macro bar ≥ 0.60 · per-class bar ≥ 0.40</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+  <nav class="tabs" id="tabs"></nav>
+
+  <section class="kpis" id="kpis"></section>
+
+  <section id="panels"></section>
+
+  <footer class="note">
+    Methodology: each model is evaluated exactly once against a class-stratified held-out test split (200 images, 50 per class) — the test set is untouched, weights are untouched, no re-tuning after results.
+    <b>Chart A</b> compares each acceptance criterion's observed value with its pre-registered threshold. <b>Chart B</b> shows per-class precision, recall and F1 against the per-class floor of 0.40.
+    "Worst-class" metrics are the minimum across the four classes. Field (verified feedback) values come from expert-verified application feedback and are shown for reference only.
+  </footer>
+</div>
+
+<div class="tip" id="tip"></div>
+
+<script>
+"use strict";
+const CRITERIA = {
+  test:{min:30}, acc:{min:0.60},
+  macroPrecision:{min:0.60}, macroRecall:{min:0.60}, macroF1:{min:0.60},
+  perClassPrecision:{min:0.40}, perClassRecall:{min:0.40}, perClassF1:{min:0.40},
+};
+const CLASS_FULL = { healthy:"Healthy", leaf_rust:"Leaf rust", leaf_spot:"Leaf spot", leaf_blight:"Leaf blight" };
+
+const MODELS = {
+  "v1.0_EXP-1.0-FT": {
+    experiment:"EXP-1.0-FT", dataset:"v1.0", evaluatedAt:"2026-09-17T08:20:09Z", verdict:"PASS",
+    testSize:200, perClassTest:{healthy:50,leaf_rust:50,leaf_spot:50,leaf_blight:50},
+    accuracy:0.835,
+    macro:{precision:0.85, recall:0.835, f1:0.8384},
+    perClass:{
+      healthy:{p:1.0,r:1.0,f1:1.0},
+      leaf_rust:{p:0.8,r:0.8,f1:0.8},
+      leaf_spot:{p:0.65,r:0.78,f1:0.7091},
+      leaf_blight:{p:0.95,r:0.76,f1:0.8444},
+    },
+    field:{accuracy:0.75, n:4},
+  },
+  "v1.0_r3_EXP-1.0-B": {
+    experiment:"r3_EXP-1.0-B", dataset:"v1.0", evaluatedAt:"2026-09-17T08:19:11Z", verdict:"PASS",
+    testSize:200, perClassTest:{healthy:50,leaf_rust:50,leaf_spot:50,leaf_blight:50},
+    accuracy:0.765,
+    macro:{precision:0.7888, recall:0.765, f1:0.7691},
+    perClass:{
+      healthy:{p:1.0,r:1.0,f1:1.0},
+      leaf_rust:{p:0.7955,r:0.7,f1:0.7447},
+      leaf_spot:{p:0.5441,r:0.74,f1:0.6271},
+      leaf_blight:{p:0.8158,r:0.62,f1:0.7045},
+    },
+    field:{accuracy:null, n:0},
+  },
+};
+
+const CAT_CRITERIA = [
+  {label:"Accuracy",         key:"acc",            pick:m=>m.accuracy},
+  {label:"Macro precision",  key:"macroPrecision", pick:m=>m.macro.precision},
+  {label:"Macro recall",     key:"macroRecall",    pick:m=>m.macro.recall},
+  {label:"Macro F1",         key:"macroF1",        pick:m=>m.macro.f1},
+  {label:"Worst precision", key:"perClassPrecision", pick:m=>minOf(m.perClass,"p")},
+  {label:"Worst recall",    key:"perClassRecall",    pick:m=>minOf(m.perClass,"r")},
+  {label:"Worst F1",        key:"perClassF1",        pick:m=>minOf(m.perClass,"f1")},
+];
+function minOf(pc,k){ return Math.min(...Object.values(pc).map(c=>c[k])); }
+
+/* ---------------- SVG chart engine ---------------- */
+const tip = document.getElementById("tip");
+let tipShown=false;
+function showTip(html, x, y){
+  tip.innerHTML = html; tip.style.opacity = 1; tipShown = true;
+  positionTip(x,y);
+}
+function hideTip(){ tip.style.opacity = 0; tipShown = false; }
+function positionTip(x,y){
+  const r = tip.getBoundingClientRect();
+  let tx = x + 14, ty = y - r.height - 10;
+  if (tx + r.width > window.innerWidth - 8) tx = x - r.width - 10;
+  if (ty < 8) ty = y + 16;
+  tip.style.left = tx + "px"; tip.style.top = ty + "px";
+}
+
+function pct(v){ return (v*100).toFixed(1); }
+function tipRow(label, val, thr, met){
+  return `<div>${label} — <b>${pct(val)}%</b> <span class="${met?"m":"x"}">${met?"✓ met":"✗ below"}</span><br><span style="color:#94a3b8">acceptance floor ${pct(thr)}%</span></div>`;
+}
+
+function renderChart(host, cfg){
+  const W = cfg.w ?? 760, padL = 58, padR = 16, padT = 26, padB = 46;
+  const plotW = W - padL - padR, plotH = 200;
+  const base = padT + plotH;
+  const yOf = v => padT + plotH*(1 - v/100);
+  const cats = cfg.categories, n = cats.length;
+  const band = plotW/n;
+  const groups = cfg.series.length;
+  const groupW = band*0.60;
+  const barTotalPct = cfg.thresholdBars ? 0.72 : 0.60;   // share of group width taken when threshold bars also drawn
+  const barW = Math.max(6, (groupW/groups)*barTotalPct - Math.min(4, (groupW/groups)*barTotalPct*0.25));
+
+  let svg = `<svg viewBox="0 0 ${W} ${padT+plotH+padB}" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,'Segoe UI',Roboto,sans-serif">`;
+  // gradient defs
+  svg += `<defs>
+    <linearGradient id="gEmerald" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#34d399"/><stop offset="1" stop-color="#059669"/></linearGradient>
+    <linearGradient id="gIndigo" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#818cf8"/><stop offset="1" stop-color="#4f46e5"/></linearGradient>
+    <linearGradient id="gSky"    x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#38bdf8"/><stop offset="1" stop-color="#0284c7"/></linearGradient>
+    <linearGradient id="gAmber"  x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fbbf24"/><stop offset="1" stop-color="#d97706"/></linearGradient>
+    <linearGradient id="gRose"   x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fb7185"/><stop offset="1" stop-color="#e11d48"/></linearGradient>
+  </defs>`;
+
+  // grid + y ticks
+  for (let g=0; g<=100; g+=20){
+    const y = yOf(g);
+    svg += `<line x1="${padL}" y1="${y}" x2="${padL+plotW}" y2="${y}" stroke="${g===0?"#cbd5e1":"#eef2f7"}" stroke-width="1"/>`;
+    svg += `<text x="${padL-8}" y="${y+3.5}" text-anchor="end" font-size="10" fill="#94a3b8">${g}%</text>`;
+  }
+
+  // threshold bars (behind value bars) — per-category thresholds
+  if (cfg.thresholdBars){
+    for (let i=0;i<n;i++){
+      const cx = padL + band*i + band/2, x0 = cx - groupW/2;
+      const thrY = yOf(cfg.thresholdBars[i]*100);
+      svg += `<rect x="${x0}" y="${thrY}" width="${groupW}" height="${base-thrY}" fill="#f3f4f6" stroke="#d1d5db" stroke-width="1" stroke-dasharray="2 3" rx="5"/>`;
+    }
+  }
+
+  // threshold reference line (single value, dashed)
+  if (cfg.thresholdLine != null){
+    const ly = yOf(cfg.thresholdLine*100);
+    svg += `<line x1="${padL}" y1="${ly}" x2="${padL+plotW}" y2="${ly}" stroke="#94a3b8" stroke-width="1.4" stroke-dasharray="6 5"/>`;
+    svg += `<rect x="${padL+plotW-118}" y="${ly-15}" width="118" height="15" rx="7" fill="#334155"/>`;
+    svg += `<text x="${padL+plotW-11}" y="${ly-4.5}" text-anchor="end" font-size="10" fill="#e2e8f0">acceptance floor ${pct(cfg.thresholdLine)}%</text>`;
+  }
+
+  // bars
+  const bars = [];
+  for (let i=0;i<n;i++){
+    const cx = padL + band*i + band/2;
+    const x0 = cx - groupW/2;
+    for (let j=0;j<groups;j++){
+      const v = cfg.series[j].values[i], thrV = cfg.thresholds ? cfg.thresholdBars?.[i] : cfg.thresholdLine;
+      const met = v >= (cfg.thresholdBars? cfg.thresholdBars[i] : (cfg.thresholdLine ?? 0));
+      const bx = x0 + j*(groupW/groups) + ((groupW/groups)-barW)/2;
+      const top = yOf(v*100);
+      const fill = cfg.series[j].color === "met" ? (met ? "url(#gEmerald)" : "url(#gRose)") : cfg.series[j].fill;
+      bars.push({bx, top, bottom: base, fill, w:barW, cat:i, s:j, v, thr: cfg.thresholdBars? cfg.thresholdBars[i] : (cfg.thresholdLine ?? null), met, label: cfg.series[j].label, catLabel: cats[i]});
+    }
+  }
+
+  const anim = (rect, top, bottom, dur=460, delay=0) => {
+    const t0 = performance.now() + delay;
+    rect.dataset.t0 = t0;
+    const step = now => {
+      const t = Math.max(0, (now - t0) / dur), k = 1 - Math.pow(1 - Math.min(1,t), 3);
+      rect.setAttribute("height", (bottom - (bottom-top)*k));
+      rect.setAttribute("y", bottom - (bottom-top)*k);
+      if (t < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  };
+
+  bars.forEach((b,i)=>{
+    const tipHtml = b.thr != null
+      ? tipRow(b.catLabel + " · " + b.label, b.v, b.thr, b.met)
+      : `<div>${b.catLabel} — <b>${pct(b.v)}%</b> ${cfg.seriesName?`, ${cfg.seriesName[b.s]}`:""}</div>`;
+    const r = `<rect x="${b.bx.toFixed(2)}" y="${b.bottom.toFixed(2)}" width="${b.w.toFixed(2)}" height="0" rx="4" fill="${b.fill}" style="cursor:pointer"/>`;
+    svg += r;
+    bars[i].id = "bar"+i;
+  });
+
+  // x labels
+  for (let i=0;i<n;i++){
+    const cx = padL + band*i + band/2;
+    const lbl = cfg.sub ? `${cats[i]} · n=${cfg.sub[i]}` : cats[i];
+    svg += `<text x="${cx}" y="${padT+plotH+22}" text-anchor="middle" font-size="10.5" fill="#64748b">${lbl}</text>`;
+  }
+
+  svg += "</svg>";
+  host.innerHTML = svg;
+  const root = host.firstElementChild;
+  const rects = root.querySelectorAll("rect[height='0']");
+  rects.forEach((rect, k) => {
+    const b = bars[k];
+    rect.addEventListener("mousemove", ev => { const r = svgElBBox(host, ev); showTip(b.thr != null ? tipRow(b.catLabel+" · "+b.label, b.v, b.thr, b.met) : `<div>${b.catLabel} — <b>${pct(b.v)}%</b> · ${b.label}</div>`, r.x, r.y); });
+    rect.addEventListener("mouseleave", hideTip);
+    anim(rect, b.top, b.bottom, 460, k*6);
+  });
+}
+
+function svgElBBox(host, ev){
+  const r = host.getBoundingClientRect();
+  return { x: ev.clientX - r.left + r.left, y: ev.clientY - r.top + r.top };
+}
+
+/* ---------------- tab / page assembly ---------------- */
+const tabsEl = document.getElementById("tabs");
+const kpisEl = document.getElementById("kpis");
+const panelsEl = document.getElementById("panels");
+const order = ["v1.0_EXP-1.0-FT", "v1.0_r3_EXP-1.0-B"];
+let active = "v1.0_EXP-1.0-FT";
+const rendered = {};
+
+function pill(v){ return v==="PASS" ? '<span class="pill pass">PASS</span>' : v==="FAIL" ? '<span class="pill fail">FAIL</span>' : '<span class="pill inc">INCONCLUSIVE</span>'; }
+
+function kpi(lbl, val, note=""){ return `<div class="kpi"><div class="lbl">${lbl}</div><div class="val">${val}</div>${note?`<div class="note">${note}</div>`:""}</div>`; }
+
+function buildTabs(){
+  tabsEl.innerHTML = order.map(v=>`<button data-tab="${v}" class="${v===active?"on":""}">${v.split("_").pop()}</button>`).join("")
+    + `<button data-tab="compare" class="${active==="compare"?"on":""}">Compare all</button>`;
+  tabsEl.querySelectorAll("button").forEach(b=>b.addEventListener("click", ()=>switchTab(b.dataset.tab)));
+}
+
+function switchTab(t){
+  if (active===t) return;
+  active = t;
+  buildTabs();
+  renderAll();
+}
+
+function renderAll(){
+  if (active === "compare"){ renderCompare(); return; }
+  const m = MODELS[active];
+  const kpis = [
+    kpi("Model version", `<span class="mono" style="font-size:16px">${active}</span>`, `${m.experiment}`),
+    kpi("Acceptance verdict", pill(m.verdict), "advisory · config v2"),
+    kpi("Held-out test", `n=${m.testSize}`, `floor ≥ ${CRITERIA.test.min} · ${m.perClassTest.healthy}/class`),
+    kpi("Accuracy", `${pct(m.accuracy)}%`, `floor ≥ ${pct(CRITERIA.acc.min)}%`),
+    kpi("Macro F1", `${pct(m.macro.f1)}%`, `precision ${pct(m.macro.precision)}% · recall ${pct(m.macro.recall)}%`),
+    kpi("Worst-class F1", `${pct(minOf(m.perClass,"f1"))}%`, `${minClass(m,"f1")} · floor ≥ ${pct(CRITERIA.perClassF1.min)}%`),
+    kpi("Field (verified)", m.field.n ? `${pct(m.field.accuracy)}%` : "—", m.field.n ? `n=${m.field.n} expert-verified` : "no verified feedback yet"),
+  ];
+  kpisEl.innerHTML = kpis.join("");
+
+  const values = CAT_CRITERIA.map(c=>c.pick(m));
+  const thresholds = CAT_CRITERIA.map(c=>CRITERIA[c.key].min);
+
+  // Chart A
+  const anote = "Bars are drawn against each criterion's own acceptance floor (0.60 macro / 0.40 per-class). Green clears the floor; red would fail.";
+  let aHTML = `
+    <div class="card">
+      <h2>A. Held-out performance vs acceptance criteria</h2>
+      <p class="deck">${anote}</p>
+      <div class="legend">
+        <span><i class="dot" style="background:#10b981"></i>Observed value</span>
+        <span><i class="dot" style="background:#e2e8f0;border:1px dashed #94a3b8"></i>Acceptance floor (per criterion)</span>
+      </div>
+      <div class="chartcard" id="ca"></div>
+      <div class="crit-grid">${CAT_CRITERIA.map((c,i)=>critChip(c.label, values[i], thresholds[i])).join("")}</div>
+    </div>`;
+
+  // Chart B
+  const classes = Object.keys(m.perClass);
+  const classLabels = classes.map(c=>CLASS_FULL[c]);
+  const supports = classes.map(c=>m.perClassTest[c]);
+  const bHTML = `
+    <div class="card">
+      <h2>B. Per-class performance — precision · recall · F1</h2>
+      <p class="deck">Per-class metrics for the same held-out test split (n=50 per class), against the per-class acceptance floor of 0.40 for every metric.</p>
+      <div class="legend">
+        <span><i class="dot" style="background:#6366f1"></i>Precision</span>
+        <span><i class="dot" style="background:#10b981"></i>Recall</span>
+        <span><i class="dot" style="background:#f59e0b"></i>F1</span>
+      </div>
+      <div class="chartcard" id="cb"></div>
+    </div>`;
+
+  panelsEl.innerHTML = aHTML + bHTML;
+
+  renderChart(document.getElementById("ca"), {
+    categories: CAT_CRITERIA.map(c=>c.label),
+    series: [{label:"Observed", values, fill:"url(#gEmerald)", color:"met"}],
+    thresholdBars: thresholds,
+    thresholds: thresholds,
+    categoriesFull: CAT_CRITERIA.map(c=>c.label),
+  });
+  renderChart(document.getElementById("cb"), {
+    categories: classLabels,
+    sub: supports,
+    series: [
+      {label:"Precision", values: classes.map(cl=>m.perClass[cl].p), fill:"url(#gIndigo)"},
+      {label:"Recall",    values: classes.map(cl=>m.perClass[cl].r), fill:"url(#gEmerald)"},
+      {label:"F1",        values: classes.map(cl=>m.perClass[cl].f1), fill:"url(#gAmber)"},
+    ],
+    thresholdLine: 0.4,
+    seriesName: ["Precision","Recall","F1"],
+  });
+}
+
+function minClass(m,k){ let mn=1,res="",mt=0; const o=m.perClass; for (const c of Object.keys(o)){ if (o[c][k] < mn - 1e-9){ mn=o[c][k]; res=c; } } return CLASS_FULL[res]; }
+
+function critChip(label, val, thr){
+  const met = val >= thr;
+  return `<div class="crit"><span>${label}</span><span class="th">${pct(val)}% / ${pct(thr)}%</span><span class="${met?"ok":"no"}">${met?"✓":"✗"}</span></div>`;
+}
+
+function renderCompare(){
+  const cats = CAT_CRITERIA.map(c=>c.label);
+  const thresholds = CAT_CRITERIA.map(c=>CRITERIA[c.key].min);
+  const ft = MODELS[order[0]], r3 = MODELS[order[1]];
+  const byModel = ov=>CAT_CRITERIA.map(c=>c.pick(ov));
+  kpisEl.innerHTML = order.map(v=>{
+    const m = MODELS[v];
+    return kpi(v.split("_").pop(), pill(m.verdict), `acc ${pct(m.accuracy)}% · macro F1 ${pct(m.macro.f1)}%`);
+  }).join("");
+  panelsEl.innerHTML = `
+    <div class="card">
+      <h2>Held-out performance vs acceptance criteria — ${order[0]} vs ${order[1]}</h2>
+      <p class="deck">Each metric shows both model versions side by side. The dashed pale bars are each criterion's acceptance floor (0.60 macro / 0.40 per-class).</p>
+      <div class="legend">
+        <span><i class="dot" style="background:#10b981"></i>${order[0]}</span>
+        <span><i class="dot" style="background:#6366f1"></i>${order[1]}</span>
+      </div>
+      <div class="chartcard" id="ca"></div>
+      <div class="crit-grid">${CAT_CRITERIA.map((c,i)=>{
+        const a=byModel(ft)[i], b=byModel(r3)[i], thr=thresholds[i];
+        return `<div class="crit"><span>${c.label}</span><span class="th">${pct(a)}% / ${pct(b)}%</span><span class="${a>=thr&&b>=thr?"ok":"no"}">${a>=thr&&b>=thr?"✓":"✗"}</span></div>`;
+      }).join("")}</div>
+    </div>`;
+  renderChart(document.getElementById("ca"), {
+    categories: cats,
+    series: [
+      {label:order[0], values:byModel(ft), fill:"url(#gEmerald)"},
+      {label:order[1], values:byModel(r3), fill:"url(#gIndigo)"},
+    ],
+    thresholdBars: thresholds,
+    thresholds: thresholds,
+  });
+}
+
+buildTabs();
+renderAll();
+</script>
+</body>
+</html>

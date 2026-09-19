@@ -11,13 +11,13 @@ export interface ImageRow {
   classification?: { classKey: string } | null;
 }
 
-const RESEARCH_TARGET = { total: 2000, perClass: 500 };
+const RESEARCH_TARGET = { total: 2500, perClass: 500 };
 
 export function computeComposition(images: ImageRow[]) {
   const research = images.filter((i) => !i.isDevFixture);
   const byStatus = countBy(research, (i) => i.annotationStatus);
 
-  const classes = ["healthy", "leaf_rust", "leaf_spot", "leaf_blight"];
+  const classes = ["healthy", "leaf_rust", "leaf_spot", "leaf_blight", "not_mulberry"];
   const perClass: Record<
     string,
     { acquired: number; annotated: number; verified: number; approved: number; rejected: number; uncertain: number }

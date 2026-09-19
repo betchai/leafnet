@@ -16,7 +16,7 @@ describe("dataset composition tracking", () => {
     expect(c.research.approved).toBe(0);
     expect(c.devFixtures).toBe(0);
     expect(c.note).toMatch(/not.*populated|no research images/i);
-    for (const cls of ["healthy", "leaf_rust", "leaf_spot", "leaf_blight"]) {
+    for (const cls of ["healthy", "leaf_rust", "leaf_spot", "leaf_blight", "not_mulberry"]) {
       expect(c.perClass[cls].approved).toBe(0);
     }
   });

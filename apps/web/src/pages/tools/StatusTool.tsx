@@ -27,14 +27,14 @@ export default function StatusTool() {
   if (err) return <p className="text-sm text-red-600">API unreachable: {err}</p>;
   if (!c) return <p className="text-gray-500">Loading…</p>;
 
-  const classes = ["healthy", "leaf_rust", "leaf_spot", "leaf_blight"];
+  const classes = ["healthy", "leaf_rust", "leaf_spot", "leaf_blight", "not_mulberry"];
   const stages = ["acquired", "annotated", "verified", "approved", "rejected", "uncertain"] as const;
 
   return (
     <div className="space-y-6">
       <section className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <Card label="Research acquired" value={c.research.totalAcquired} sub="target 2000" />
-        <Card label="Approved" value={c.research.approved} sub={`shortfall ${Math.max(0, 2000 - c.research.approved)}`} />
+        <Card label="Research acquired" value={c.research.totalAcquired} sub="target 2500" />
+        <Card label="Approved" value={c.research.approved} sub={`shortfall ${Math.max(0, 2500 - c.research.approved)}`} />
         <Card label="Dev fixtures (excluded)" value={c.devFixtures} sub="never counted as research" />
         <Card label="Open duplicate flags" value={c.openDuplicateFlags} sub="need human resolution" />
       </section>

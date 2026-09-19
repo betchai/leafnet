@@ -5,7 +5,17 @@ import { api, apiFetch, ClassConfig, PredictionHistoryRow } from "../lib/api";
 interface Status {
   research: Record<string, number>;
   devFixtures: number;
-  perClass: Record<string, Record<string, number>>;
+  perClass: Record<
+    string,
+    {
+      acquired: number;
+      annotated: number;
+      verified: number;
+      approved: number;
+      rejected: number;
+      uncertain: number;
+    }
+  >;
   activeModel: { version: string; architecture: string } | null;
   feedbackCount: number;
   openDuplicateFlags: number;
@@ -59,12 +69,70 @@ export default function Dashboard() {
         <h2 className="text-lg font-semibold mb-3">Leaf health classes</h2>
         {classes ? (
           <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            {classes.classes.map((c) => (
-              <li key={c.key} className="rounded-lg bg-white border border-gray-200 p-4">
-                <p className="font-medium">{c.label}</p>
-                <p className="text-sm text-gray-500 line-clamp-2">{c.description}</p>
-              </li>
-            ))}
+            {classes.classes.map((c) => {
+              const counts = status?.perClass?.[c.key];
+              return (
+                <li
+                  key={c.key}
+                  className="rounded-lg bg-white border border-gray-200 p-4 flex flex-col gap-2"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="font-medium">{c.label}</p>
+                    {c.category && (
+                      <span
+                        className={`shrink-0 text-[10px] uppercase tracking-wide rounded px-1.5 py-0.5 ${badgeClass(c.category)}`}
+                      >
+                        {c.category.replace(/_/g, " ")}
+                      </span>
+                    )}
+                  </div>
+                  {c.definition_confidence && (
+                    <p className="text-[11px] text-gray-400 uppercase tracking-wide">
+                      definition confidence: {c.definition_confidence}
+                    </p>
+                  )}
+                  <p className="text-sm text-gray-500">{c.description}</p>
+                  {(c.visual_indicators?.length || c.confounding_conditions?.length) && (
+                    <details className="group text-sm">
+                      <summary className="cursor-pointer text-blue-700 hover:underline font-medium">
+                        How to identify
+                      </summary>
+                      <div className="mt-2 space-y-2 text-gray-600">
+                        {c.visual_indicators?.length ? (
+                          <div>
+                            <p className="text-[11px] uppercase tracking-wide text-gray-400 mb-1">
+                              Visual indicators
+                            </p>
+                            <ul className="list-disc pl-4 space-y-1">
+                              {c.visual_indicators.slice(0, 4).map((v, i) => (
+                                <li key={i}>{v}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        ) : null}
+                        {c.confounding_conditions?.length ? (
+                          <div>
+                            <p className="text-[11px] uppercase tracking-wide text-gray-400 mb-1">
+                              Easy to confuse with
+                            </p>
+                            <ul className="list-disc pl-4 space-y-1">
+                              {c.confounding_conditions.slice(0, 3).map((v, i) => (
+                                <li key={i}>{v}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        ) : null}
+                      </div>
+                    </details>
+                  )}
+                  <p className="mt-auto pt-1 text-xs text-gray-400">
+                    {counts
+                      ? `${counts.approved} / ${counts.acquired} approved`
+                      : "dataset counts unavailable"}
+                  </p>
+                </li>
+              );
+            })}
           </ul>
         ) : (
           <EmptyState title="Class configuration unavailable" message="Expected ml/src/config/classes.json." />
@@ -98,6 +166,19 @@ export default function Dashboard() {
       {status?.note && <p className="text-xs text-gray-400">{status.note}</p>}
     </div>
   );
+}
+
+function badgeClass(category: string): string {
+  switch (category.toLowerCase()) {
+    case "condition":
+      return "bg-emerald-50 text-emerald-700 border border-emerald-200";
+    case "fungal_disease":
+      return "bg-amber-50 text-amber-700 border border-amber-200";
+    case "disease":
+      return "bg-rose-50 text-rose-700 border border-rose-200";
+    default:
+      return "bg-slate-50 text-slate-600 border border-slate-200";
+  }
 }
 
 function StatCard({ label, value, sub }: { label: string; value: string; sub: string }) {
