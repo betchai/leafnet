@@ -74,6 +74,27 @@
   .swatches{display:flex;gap:6px;flex-wrap:wrap}
   .sw{display:flex;flex-direction:column;align-items:center;font-size:10px;color:#64748b}
   .sw i{width:30px;height:30px;border-radius:9px;border:1px solid var(--line);margin-bottom:3px}
+  .tstack{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:12px}
+  .tlayer{border:1px solid var(--line);border-radius:14px;padding:12px 14px;background:#fff;position:relative}
+  .tlayer .n{font-size:10px;font-weight:750;letter-spacing:.08em;text-transform:uppercase}
+  .tlayer .t{font-size:13px;font-weight:720;margin-top:2px}
+  .tlayer .d{font-size:11.5px;color:var(--mut);margin-top:3px;line-height:1.45}
+  .tlayer .tag{display:inline-block;margin-top:8px;font-size:10.5px;font-weight:650;padding:2px 8px;border-radius:999px}
+  .tlayer.st{background:linear-gradient(135deg,#f0fdf4,#ffffff)}
+  .tlayer.re{background:linear-gradient(135deg,#ffe4e6,#ffffff)}
+  .tlayer.am{background:linear-gradient(135deg,#fffbeb,#ffffff)}
+  .tlayer.ec{background:linear-gradient(135deg,#ecfeff,#ffffff)}
+  .tlayer.sl{background:linear-gradient(135deg,#f9a8d4,#ffffff)}
+  .tlayer.ht{background:linear-gradient(135deg,#e0e7ff,#ffffff)}
+  .vline{display:flex;align-items:center;gap:8px;margin:2px 0}
+  .vline .ok{color:#059669;font-weight:750;font-size:12px}
+  .vline .no{color:#e11d48;font-weight:750;font-size:12px}
+  .vline .lb{color:#334155;font-size:12.5px}
+  .thr{display:flex;gap:8px;align-items:center;margin:8px 0;flex-wrap:wrap}
+  .thr .bar{flex:1;min-width:60px;height:8px;border-radius:99px;background:#e2e8f0;position:relative;overflow:hidden}
+  .thr .bar i{position:absolute;left:0;top:0;height:100%;border-radius:99px}
+  .thr .lbl{font-size:11.5px;font-weight:650;color:#334155;width:130px}
+  @media(max-width:640px){ .thr .lbl{width:100%} }
   @media(max-width:640px){ .grid2{grid-template-columns:1fr} }
 </style>
 </head>
@@ -104,7 +125,7 @@
       <h2>1. Abstract</h2>
       <p>Mulberry (<em>Morus</em> spp.) leaf health is the single most consequential factor in sericulture yield and silk quality; foliar diseases — leaf rust, leaf spot and leaf blight — are conventionally identified by trained human eyes, a slow and inconsistently reproducible process. LEAFNET is an applied-research information system developed in collaboration with the Sericulture Research and Development Institute (SRDI) of the Don Mariano Marcos Memorial State University (DMMMSU), Philippines, that automates the classification of mulberry leaf health from photographs using deep transfer learning.</p>
       <p>At its core sits a MobileNetV2 classifier (Sandler et al., 2018) pre-trained on ImageNet (Deng et al., 2009) and fine-tuned on a curated, expert-annotated dataset of <strong>2,000 mulberry leaf images distributed across four classes at 500 images each</strong> (healthy, leaf rust, leaf spot, leaf blight). Two training regimes were compared — a <strong>frozen-backbone baseline</strong> and a <strong>partial fine-tune</strong> of the final five blocks — and both were evaluated exactly once against a class-stratified, leakage-guarded held-out test set of 200 images under <strong>pre-registered acceptance thresholds</strong> (acceptance config v2) fixed before any result was observed.</p>
-      <p>Results: the fine-tuned model (EXP-1.0-FT) achieved a held-out test accuracy of <strong>83.5%</strong>, macro F1 of <strong>0.838</strong>, and worst-class F1 of <strong>0.709</strong> — passing every pre-registered threshold (macro bar ≥ 0.60, per-class bar ≥ 0.40). The frozen-backbone baseline (EXP-1.0-B) reached 76.5% accuracy and macro F1 0.769, also clearing the bars but at a consistent per-class deficit — the expected payoff of fine-tuning in transfer learning (Yosinski et al., 2014; Ferentinos, 2018). Robustness analysis on a separate in-situ (natural-background) domain quantifies an accuracy gap under covariate shift, and a within-class severity-shift failure mode for the blight class is documented in detail (Section 8.4).</p>
+      <p>Results: the fine-tuned model (EXP-1.0-FT) achieved a held-out test accuracy of <strong>83.5%</strong>, macro F1 of <strong>0.838</strong>, and worst-class F1 of <strong>0.709</strong> — passing every pre-registered threshold (macro bar ≥ 0.60, per-class bar ≥ 0.40). The frozen-backbone baseline (EXP-1.0-B) reached 76.5% accuracy and macro F1 0.769, also clearing the bars but at a consistent per-class deficit — the expected payoff of fine-tuning in transfer learning (Yosinski et al., 2014; Ferentinos, 2018). Robustness analysis on a separate in-situ (natural-background) domain quantifies an accuracy gap under covariate shift, and a within-class severity-shift failure mode for the blight class is documented in detail (Section 12.1).</p>
     </div>
 
     <div class="card">
@@ -148,7 +169,7 @@
           <li>Metadata (farm, capture date, GPS, variety) is retained for audit and reproducibility.</li>
           <li>Usability was assessed separately with the System Usability Scale (Brooke, 1996); copyright and licensing of source imagery is recorded per image.</li>
         </ul>
-        <p>The LEAFNET system enforces a strict <strong>expert gate</strong> on every dataset row: an image enters training/evaluation only after two-stage review reaches <span class="code">APPROVED</span> status (Section 6).</p>
+        <p>The LEAFNET system enforces a strict <strong>expert gate</strong> on every dataset row: an image enters training/evaluation only after two-stage review reaches <span class="code">APPROVED</span> status (Section 5.2).</p>
       </div>
     </div>
   </section>
@@ -282,7 +303,7 @@ leafnet/
         <li>A <strong>preflight integrity audit</strong> refuses training if: rows are not unanimously <span class="code">APPROVED</span>; labels violate the taxonomy; any class is missing from any split; train/validation/test overlap; any referenced file is unreadable.</li>
         <li>Exact-duplicate (SHA-256 content-hash) and near-duplicate (imagehash) checks still apply: any two rows with identical content are locked into one split regardless of provenance (no duplicates were present in v1.0, <code>duplicate_locked_groups = 0</code>).</li>
       </ul>
-      <p>The result: <strong>the 200-image held-out test set used in every evaluation in this document is class-stratified, deterministic (seed 42), isolation-checked by preflight, and never touched during training, validation, or hyperparameter selection.</strong> Because no grouping metadata exists, a leaf-correlated grouped split is not yet attainable for v1.0; that remains future work (Sections 13.1–13.2).</p>
+      <p>The result: <strong>the 200-image held-out test set used in every evaluation in this document is class-stratified, deterministic (seed 42), isolation-checked by preflight, and never touched during training, validation, or hyperparameter selection.</strong> Because no grouping metadata exists, a leaf-correlated grouped split is not yet attainable for v1.0; that remains future work (Sections 14.1–14.2).</p>
     </div>
 
     <div class="card">
@@ -296,7 +317,7 @@ leafnet/
   <section class="panel" id="p-taxonomy">
     <div class="card">
       <h2>6. The Domain Taxonomy and its Scientific Basis</h2>
-      <p>The four-class taxonomy is the operationalization of Objective 1. Each class is defined in <span class="code">ml/src/config/classes.json</span> by <strong>visual indicators + evidence sources</strong> grounded in the sericulture and plant-pathology literature, so a label assignment is a citable claim, not a stylistic choice. Two classes carry formal research notes documenting known ambiguities (Section 8.4).</p>
+      <p>The four-class taxonomy is the operationalization of Objective 1. Each class is defined in <span class="code">ml/src/config/classes.json</span> by <strong>visual indicators + evidence sources</strong> grounded in the sericulture and plant-pathology literature, so a label assignment is a citable claim, not a stylistic choice. Two classes carry formal research notes documenting known ambiguities (Sections 6.3–6.4).</p>
     </div>
 
     <div class="grid2">
@@ -329,14 +350,14 @@ leafnet/
         <ul class="tight">
           <li>Early water-soaked olive/translucent angular spots with chlorotic halos, black shoot striping; lesions enlarge and <em>coalesce</em> into large irregular necrotic regions (the defining difference vs. spot); tip/margin scorch.</li>
           <li><em>Evidence:</em> Texas A&amp;M (Pseudomonas syringae pv. mori); PNW Plant Disease Handbook; RHS bacterial leaf spot; PlantVillage; Sahin (1999 first report); Huang et al. (2025) — a pathogen <em>complex</em> of up to 10 confirmed bacteria; J-Stage (2014) Mulberry Diseases and Their Control; Dizon &amp; Kakishima (1995).</li>
-          <li><span class="pill fail">Known risk</span> literature lacks a single crisp visual rule separating severe spot from blight; handled by expert adjudication — see the severity-shift analysis in Section 8.4.</li>
+          <li><span class="pill fail">Known risk</span> literature lacks a single crisp visual rule separating severe spot from blight; handled by expert adjudication — see the severity-shift analysis in Section 12.1.</li>
         </ul>
       </div>
     </div>
 
     <div class="card">
       <h2>6.5 Label semantics, single-label design and class boundaries</h2>
-      <p>LEAFNET is <strong>single-label</strong>: the model outputs a 4-way softmax, so one dominant class is predicted per image. This mirrors the labeling schema — each image receives exactly one approved class — and is a documented scope decision: co-present (multiple-disease) leaves are assigned the majority symptom class, and blended presentations are a known limitation. In September 2026 a fifth class, <span class="code">not_mulberry</span>, was added to the taxonomy as the <strong>out-of-distribution rejection class</strong>; the two evaluated models in this document are 4-class and cannot predict it, and a 5-class retrain including real non-mulberry negatives is required before the rejection behaviour is active in production. That extension is future work (Section 9).</p>
+      <p>LEAFNET is <strong>single-label</strong>: the model outputs a 4-way softmax, so one dominant class is predicted per image. This mirrors the labeling schema — each image receives exactly one approved class — and is a documented scope decision: co-present (multiple-disease) leaves are assigned the majority symptom class, and blended presentations are a known limitation. In September 2026 a fifth class, <span class="code">not_mulberry</span>, was added to the taxonomy as the <strong>out-of-distribution rejection class</strong>; the two evaluated models in this document are 4-class and cannot predict it, and a 5-class retrain including real non-mulberry negatives is required before the rejection behaviour is active in production. That extension is future work (Section 14).</p>
     </div>
   </section>
 
@@ -414,7 +435,7 @@ leafnet/
           <tr><td>Epochs (max)</td><td class="num">20</td><td class="num">20</td><td>—</td></tr>
         </tbody>
       </table>
-      <p>The best <em>validation</em> checkpoint (<span class="code">model_best.pt</span>) is saved; the model is <strong>never exposed to the held-out test set</strong> during training, validation, or any hyperparameter selection. The test set is exercised exactly once, in the formal evaluation pass (Section 6.2).</p>
+      <p>The best <em>validation</em> checkpoint (<span class="code">model_best.pt</span>) is saved; the model is <strong>never exposed to the held-out test set</strong> during training, validation, or any hyperparameter selection. The test set is exercised exactly once, in the formal evaluation pass (Section 9.2).</p>
     </div>
 
     <div class="card">
@@ -473,10 +494,98 @@ leafnet/
     </div>
   </section>
 
-  <!-- ============ PANEL 8: RESULTS ============ -->
+  <!-- ============ PANEL 8: TESTING & VERIFICATION ============ -->
+  <section class="panel" id="p-testing">
+    <div class="card">
+      <h2>10. Testing &amp; Verification — How LEAFNET Was Tested</h2>
+      <p>LEAFNET's testing argument for the thesis answers the chairman's question with <strong>evidence from seven independent verification layers</strong>, ordered from the innermost unit level to the outer deployment level. Each layer exists in the repository, its results are auditable, and together they form a defensible chain that no single run — no matter how good — could fake.</p>
+      <div class="tstack">
+        <div class="tlayer st"><span class="n" style="color:#047857">Layer 1</span><div class="t">Automated unit &amp; integration tests</div><div class="d">Code-level correctness: 102 pytest + 55 Vitest cases guard every workflow, splitter, metric and permission.</div><span class="tag" style="background:#d1fae5;color:#047857">Continuous</span></div>
+        <div class="tlayer re"><span class="n" style="color:#be123c">Layer 2</span><div class="t">Training preflight integrity gate</div><div class="d">Training refuses to start if any dataset-integrity check fails — leakage, label, class, file or approval violation.</div><span class="tag" style="background:#ffe4e6;color:#be123c">Gate-before-train</span></div>
+        <div class="tlayer am"><span class="n" style="color:#b45309">Layer 3</span><div class="t">Pre-registered acceptance gates</div><div class="d">Fixed-before-training bars on accuracy, macro P/R/F1 and worst-class P/R/F1 enforced by evaluate_acceptance.</div><span class="tag" style="background:#fef3c7;color:#b45309">Objective 4</span></div>
+        <div class="tlayer ec"><span class="n" style="color:#0e7490">Layer 4</span><div class="t">Held-out laboratory evaluation</div><div class="d">One pass on untouched, class-stratified test set (n=200, 50/class); confusion matrix &amp; per-class metrics.</div><span class="tag" style="background:#cffafe;color:#0e7490">Single pass</span></div>
+        <div class="tlayer sl"><span class="n" style="color:#a21caf">Layer 5</span><div class="t">Out-of-distribution (OOD) robustness</div><div class="d">Natural-background in-situ images as a covariate-shift domain; per-domain accuracy &amp; F1 reported.</div><span class="tag" style="background:#fae8ff;color:#a21caf">Domain shift</span></div>
+        <div class="tlayer ht"><span class="n" style="color:#3730a3">Layer 6</span><div class="t">Confidence &amp; calibration audit</div><div class="d">Softmax behaviour on correct vs. incorrect predictions; high-confidence-error count surfaced honestly.</div><span class="tag" style="background:#e0e7ff;color:#3730a3">Honesty audit</span></div>
+        <div class="tlayer st"><span class="n" style="color:#047857">Layer 7</span><div class="t">Field verification &amp; monitoring</div><div class="d">Expert-verified production feedback compared against lab reports in the monitoring workflow.</div><span class="tag" style="background:#d1fae5;color:#047857">Deployment loop</span></div>
+      </div>
+      <p class="fig">Figure 5. The seven verification layers. Every layer is an artifact path in the repository (<span class="code">ml/tests/</span>, <span class="code">apps/api/src/**/**.test.ts</span>, <span class="code">ml/reports/evaluation/*</span>); none depends on a verbal claim.</p>
+    </div>
+
+    <div class="grid2">
+      <div class="card">
+        <h2>Table 7. Layer 1 — automated test suites (recorded in repo)</h2>
+        <h3>Machine-learning suite — pytest · 102 tests · 12 files</h3>
+        <table>
+          <thead><tr><th>Test module</th><th class="num">Cases</th><th>What it guards</th></tr></thead>
+          <tbody>
+            <tr><td><span class="code">test_splitting.py</span></td><td class="num">17</td><td>partition balance, stratification, leakage isolation</td></tr>
+            <tr><td><span class="code">test_inference_api.py</span></td><td class="num">14</td><td>/predict, /predict/batch, /explain endpoints</td></tr>
+            <tr><td><span class="code">test_symptom_analysis.py</span></td><td class="num">12</td><td>domain symptomology logic</td></tr>
+            <tr><td><span class="code">test_acceptance.py</span></td><td class="num">11</td><td>pre-registered verdict computation</td></tr>
+            <tr><td><span class="code">test_training.py</span></td><td class="num">11</td><td>train loop, config, class weights</td></tr>
+            <tr><td><span class="code">test_insights.py</span></td><td class="num">10</td><td>insights/metrics analytics</td></tr>
+            <tr><td><span class="code">test_eda.py</span></td><td class="num">7</td><td>exploratory analysis integrity</td></tr>
+            <tr><td><span class="code">test_validation.py</span></td><td class="num">6</td><td>dataset cut validation</td></tr>
+            <tr><td><span class="code">test_evaluation.py</span></td><td class="num">5</td><td>metric computation correctness</td></tr>
+            <tr><td><span class="code">test_manifest_stats.py</span></td><td class="num">4</td><td>manifest/statistics integrity</td></tr>
+            <tr><td><span class="code">test_ensemble.py</span></td><td class="num">3</td><td>ensemble aggregation</td></tr>
+            <tr><td><span class="code">test_saliency.py</span></td><td class="num">2</td><td>saliency map shape/output</td></tr>
+          </tbody>
+        </table>
+        <h3>API/web suite — Vitest · 55 cases · 8 files</h3>
+        <table>
+          <thead><tr><th>Test module</th><th class="num">Cases</th><th>What it guards</th></tr></thead>
+          <tbody>
+            <tr><td><span class="code">workflow.test.ts</span></td><td class="num">12</td><td>annotation state machine</td></tr>
+            <tr><td><span class="code">datasetCut.test.ts</span></td><td class="num">10</td><td>dataset cut/versioned integrity</td></tr>
+            <tr><td><span class="code">lifecycle.test.ts</span></td><td class="num">8</td><td>model lifecycle promotion rules</td></tr>
+            <tr><td><span class="code">permissions.test.ts</span></td><td class="num">6</td><td>RBAC capability matrix</td></tr>
+            <tr><td><span class="code">passwords.test.ts</span></td><td class="num">5</td><td>credential hashing</td></tr>
+            <tr><td><span class="code">composition.test.ts</span></td><td class="num">5</td><td>dataset composition gating</td></tr>
+            <tr><td><span class="code">ingestion.test.ts</span></td><td class="num">5</td><td>image ingest &amp; duplicate flagging</td></tr>
+            <tr><td><span class="code">taxonomy.test.ts</span></td><td class="num">4</td><td>approved-class validation</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div>
+        <div class="card">
+          <h2>Table 8. Layer 2 — training preflight integrity gate</h2>
+          <div class="vline"><span class="ok">✓</span><span class="lb">All rows <span class="code">APPROVED</span> — no unverified ground truth</span></div>
+          <div class="vline"><span class="ok">✓</span><span class="lb">Labels valid against the approved taxonomy</span></div>
+          <div class="vline"><span class="ok">✓</span><span class="lb">Every class present in every split (no unmeasurable class)</span></div>
+          <div class="vline"><span class="ok">✓</span><span class="lb">Train / validation / test disjoint (leakage-free)</span></div>
+          <div class="vline"><span class="ok">✓</span><span class="lb">All referenced files readable &amp; valid</span></div>
+          <p class="fig">Training is <strong>refused</strong> if any check fails; the refusal is logged. A model cannot be silently trained on a broken dataset.</p>
+        </div>
+        <div class="card">
+          <h2>Table 9. Layers 4–7 — verification results at a glance</h2>
+          <div class="thr"><span class="lbl">Held-out accuracy (n=200)</span><span class="bar"><i style="width:83.5%;background:var(--sky)"></i></span><span class="lbl" style="width:auto">83.5% FT · 76.5% B</span></div>
+          <div class="thr"><span class="lbl">Macro F1 (n=200)</span><span class="bar"><i style="width:83.8%;background:var(--indigo)"></i></span><span class="lbl" style="width:auto">0.838 FT · 0.769 B</span></div>
+          <div class="thr"><span class="lbl">OOD natural-domain acc</span><span class="bar"><i style="width:78%;background:var(--amber)"></i></span><span class="lbl" style="width:auto">78% FT</span></div>
+          <div class="thr"><span class="lbl">Acceptance gates met</span><span class="bar"><i style="width:100%;background:var(--emerald)"></i></span><span class="lbl" style="width:auto">8/8 · 8/8</span></div>
+          <div class="thr"><span class="lbl">High-confidence errors (≥0.8)</span><span class="bar"><i style="width:10%;background:var(--rose)"></i></span><span class="lbl" style="width:auto">4 of 200</span></div>
+          <div class="thr"><span class="lbl">Verified field n</span><span class="bar"><i style="width:2%;background:#94a3b8"></i></span><span class="lbl" style="width:auto">4 (directional only)</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>10.1 The testing rationale — why this chain is defensible</h2>
+      <ul class="tight">
+        <li><strong>Automation before claims.</strong> The 102 + 55 automated tests run on every change (CI-ready: <span class="code">pytest</span>, <span class="code">vitest</span>), so the testing claim is not a screenshot but a reproducible command.</li>
+        <li><strong>Pre-registration beats post-hoc analysis.</strong> Acceptance thresholds were fixed before training results existed (acceptance config v2); the version history shows v2 only <em>added</em> precision/recall bars, never relaxed any threshold.</li>
+        <li><strong>One held-out pass.</strong> The 200-image test set is touched exactly once per model — eliminating the "select the run that passed" bias that invalidates most unreported model evaluations.</li>
+        <li><strong>Adversarial honesty.</strong> The system actively surfaces what went wrong (difficult cases, high-confidence errors, OOD accuracy drops, low-confidence flags) rather than only reporting the headline 83.5%.</li>
+        <li><strong>Every metric is deterministic.</strong> Seed 42 partitions, reader-safe split audit (strategy recorded as <span class="code">image_level_random_fallback…</span>), and scikit-learn-computed metrics mean an examiner can regenerate any number from <span class="code">ml/src/</span> + <span class="code">ml/reports/</span>.</li>
+      </ul>
+      <div class="callout ok"><b>Answer to the panel, in one line</b>The system was tested with 157 automated tests guarding every workflow, a hard preflight gate before training, fixed-before-results acceptance bars, a single untouched held-out evaluation (n=200, 50/class), an OOD covariate-shift evaluation, a confidence/calibration audit, and an expert-verified field loop — with every result reproducible from the repository.</div>
+    </div>
+  </section>
+
+  <!-- ============ PANEL 9: RESULTS ============ -->
   <section class="panel" id="p-results">
     <div class="card">
-      <h2>10. Held-Out Laboratory Reports — Results</h2>
+      <h2>11. Held-Out Laboratory Reports — Results</h2>
       <p>Both candidates were evaluated on <span class="code">dataset v1.0</span> on 2026-09-17. Results below reproduce <span class="code">ml/reports/evaluation/v1.0_EXP-1.0-FT/*</span> and <span class="code">ml/reports/evaluation/v1.0_r3_EXP-1.0-B/*</span> in full.</p>
       <div class="kpis">
         <div class="kpi"><div class="lbl">Model</div><div class="val" style="font-size:15px">EXP-1.0-FT</div><div class="note">partial fine-tune · 1.69M trainable</div></div>
@@ -496,9 +605,9 @@ leafnet/
     </div>
 
     <div class="card">
-      <h2>10.1 Per-class precision, recall and F1</h2>
+      <h2>11.1 Per-class precision, recall and F1</h2>
       <div class="chartcard" id="chart-pcr"></div>
-      <p class="fig">Figure 5. Per-class metrics across both regimes. The healthy class is learned perfectly (P/R/F1 = 1.0). The disease classes are harder, with leaf spot and leaf blight most confusable. The fine-tune lifts the worst class (spot F1 0.627 → 0.709; blight F1 0.705 → 0.844).</p>
+      <p class="fig">Figure 6. Per-class metrics across both regimes. The healthy class is learned perfectly (P/R/F1 = 1.0). The disease classes are harder, with leaf spot and leaf blight most confusable. The fine-tune lifts the worst class (spot F1 0.627 → 0.709; blight F1 0.705 → 0.844).</p>
       <table>
         <thead><tr><th>Class</th><th>EXP-1.0-FT P / R / F1</th><th>EXP-1.0-B P / R / F1</th></tr></thead>
         <tbody>
@@ -512,7 +621,7 @@ leafnet/
     </div>
 
     <div class="card">
-      <h2>10.2 Confusion matrices</h2>
+      <h2>11.2 Confusion matrices</h2>
       <div class="grid2">
         <div class="chartcard">
           <h3 style="margin:0 0 6px">EXP-1.0-FT confusion matrix (n=200)</h3>
@@ -523,13 +632,13 @@ leafnet/
           <div class="cm" id="cm-B"></div>
         </div>
       </div>
-      <p class="fig">Figure 6. Row-normalized confusion matrices (rows = actual, columns = predicted). FT: healthy is perfect; rust→spot 10, spot→rust 9, blight→spot 11 are the three dominant error cells. B: blight→spot 17 is the single largest error — the fine-tune more than halves the worst confusions on blight (17 → 11 into spot, 2 → 1 into rust).</p>
+      <p class="fig">Figure 7. Row-normalized confusion matrices (rows = actual, columns = predicted). FT: healthy is perfect; rust→spot 10, spot→rust 9, blight→spot 11 are the three dominant error cells. B: blight→spot 17 is the single largest error — the fine-tune more than halves the worst confusions on blight (17 → 11 into spot, 2 → 1 into rust).</p>
     </div>
 
     <div class="card">
-      <h2>10.3 Acceptance gate-by-gate</h2>
+      <h2>11.3 Acceptance gate-by-gate</h2>
       <div class="chartcard" id="chart-accept"></div>
-      <p class="fig">Figure 7. Each criterion: observed value (bars) vs. pre-registered threshold (dashed baseline). Both models clear every gate; EXP-1.0-FT does so with more headroom on every macro and per-class bar.</p>
+      <p class="fig">Figure 8. Each criterion: observed value (bars) vs. pre-registered threshold (dashed baseline). Both models clear every gate; EXP-1.0-FT does so with more headroom on every macro and per-class bar.</p>
       <table>
         <thead><tr><th>Criterion</th><th class="num">Bar</th><th class="num">FT</th><th class="num">B</th></tr></thead>
         <tbody>
@@ -546,7 +655,7 @@ leafnet/
     </div>
 
     <div class="card">
-      <h2>10.4 Confidence behaviour (honesty audit)</h2>
+      <h2>11.4 Confidence behaviour (honesty audit)</h2>
       <table>
         <thead><tr><th>Quantity</th><th class="num">EXP-1.0-FT</th><th class="num">EXP-1.0-B</th></tr></thead>
         <tbody>
@@ -560,13 +669,13 @@ leafnet/
     </div>
   </section>
 
-  <!-- ============ PANEL 9: DISTRIBUTION SHIFT ============ -->
+  <!-- ============ PANEL 10: DISTRIBUTION SHIFT ============ -->
   <section class="panel" id="p-robustness">
     <div class="card">
-      <h2>11. Robustness: Distribution Shift (OOD) Evaluation</h2>
+      <h2>12. Robustness: Distribution Shift (OOD) Evaluation</h2>
       <p>Held-out accuracy measures the white-removed (curated) lab domain. Deployment happens in the field, where leaves are photographed against natural backgrounds — a <strong>covariate shift</strong> relative to the curated test set. LEAFNET evaluates this explicitly via <span class="code">distribution_shift.json</span> for every candidate, separating images by <span class="code">background_type</span>:</p>
       <div class="chartcard" id="chart-shift"></div>
-      <p class="fig">Figure 8. Domain split of the test set: 150 natural-background (in-situ) images + 50 white-removed (curated) images. healthy has no natural-domain representation in this split (all healthy are white-removed), so its natural F1 is structurally undefined and the macro on natural is depressed accordingly — the accuracy rows are the comparable signal.</p>
+      <p class="fig">Figure 9. Domain split of the test set: 150 natural-background (in-situ) images + 50 white-removed (curated) images. healthy has no natural-domain representation in this split (all healthy are white-removed), so its natural F1 is structurally undefined and the macro on natural is depressed accordingly — the accuracy rows are the comparable signal.</p>
       <table>
         <thead><tr><th>Domain</th><th class="num">Support</th><th class="num">FT acc</th><th class="num">B acc</th><th>Reading</th></tr></thead>
         <tbody>
@@ -574,38 +683,38 @@ leafnet/
           <tr><td>Natural / in-situ (OOD)</td><td class="num">150</td><td class="num">0.780</td><td class="num">0.687</td><td>real deployment condition</td></tr>
         </tbody>
       </table>
-      <p class="fig">Table 7. Covariate-shift summary. The reference domain is white_removed; natural is the OOD domain. The natural-domain accuracy gap (FT 1.000 → 0.780; B 1.000 → 0.687) is mild-to-moderate covariate shift and is reported rather than hidden — a finding that directly informs the deployment plan (Section 12).</p>
+      <p class="fig">Table 10. Covariate-shift summary. The reference domain is white_removed; natural is the OOD domain. The natural-domain accuracy gap (FT 1.000 → 0.780; B 1.000 → 0.687) is mild-to-moderate covariate shift and is reported rather than hidden — a finding that directly informs the deployment plan (Section 13).</p>
     </div>
 
     <div class="card">
-      <h2>11.1 The within-class severity shift (leaf blight) — documented failure mode</h2>
+      <h2>12.1 The within-class severity shift (leaf blight) — documented failure mode</h2>
       <div class="callout rose"><b>Flagged research risk</b>The literature does not provide a single crisp visual rule separating severe leaf blight from severe leaf spot on mulberry. An expert adjudication in September 2026 reviewed all 100 test-lot LB_A leaves (labeled contact sheet) and confirmed <strong>all are leaf blight</strong> — many are early/mild blight (median necrotic coverage 0.032, p90 0.085). Failure mode is <strong>within-class severity shift</strong>, not mislabel: blight training lots C–E span mild-to-severe (median coverage 0.10–0.12; p90 0.34–0.40), while the test lot is uniformly low-severity, so mild blight collapses toward the leaf-spot class (80/100 in an earlier failing variant).</div>
       <p>This is precisely the pattern visible in the final confusion matrices: blight→spot is the largest error cell in both models (FT 11/50; B 17/50), and it concentrates on low-severity blight images. The mitigation stack (photometric normalization 0.343; low-severity-aware training; documented severity metadata) reduced but did not eliminate the shift. This is reported as a <strong>known limitation with numerical evidence</strong>, not papered over — a distinguishing feature of a defensible thesis.</p>
       <ul class="tight">
         <li>Blight recall FT 0.76 vs B 0.62 — fine-tuning partially recovers mild-blight sensitivity.</li>
         <li>Blight precision is strongly class-selective: FT 0.95 (only 2 false positives total into blight).</li>
-        <li>The ecosystem records <em>severity</em> as metadata-only, so severity-aware sampling remains future work (Section 12).</li>
+        <li>The ecosystem records <em>severity</em> as metadata-only, so severity-aware sampling remains future work (Section 13).</li>
       </ul>
     </div>
 
     <div class="card">
-      <h2>11.2 Explainability and symptom-based criteria</h2>
+      <h2>12.2 Explainability and symptom-based criteria</h2>
       <p>The ML service exposes <span class="code">/explain</span> (input-gradient saliency heatmaps; Simonyan et al., 2014) and the system maintains <span class="code">symptom_analysis</span> and <span class="code">criteria_profiles</span> so predictions can be checked against the domain symptomology of Section 6 — the model is interrogable, matching the study's evidence-based-decision goal. These artifacts extend the evaluation from "what did it guess" to "on what visual evidence".</p>
     </div>
   </section>
 
-  <!-- ============ PANEL 10: FIELD MONITORING ============ -->
+  <!-- ============ PANEL 11: FIELD MONITORING ============ -->
   <section class="panel" id="p-field">
     <div class="card">
-      <h2>12. Field Signals: Lab vs. Production Monitoring</h2>
+      <h2>13. Field Signals: Lab vs. Production Monitoring</h2>
       <p>LEAFNET closes the loop with a monitoring workflow: when human reviewers correct a production prediction, the correction is captured as <strong>expert-verified feedback</strong> and can be promoted into the candidate training pool. A lab-vs-field comparison tracks the gap between held-out lab accuracy and verified field accuracy.</p>
       <div class="chartcard" id="chart-field"></div>
-      <p class="fig">Figure 9. Lab (held-out, n=200) vs. verified field accuracy for EXP-1.0-FT (field n=4, one correction) — field data is <em>reference only</em> at this sample size and is shown precisely because it is small, to avoid overclaiming. EXP-1.0-B has no verified field feedback yet in this dataset version.</p>
+      <p class="fig">Figure 10. Lab (held-out, n=200) vs. verified field accuracy for EXP-1.0-FT (field n=4, one correction) — field data is <em>reference only</em> at this sample size and is shown precisely because it is small, to avoid overclaiming. EXP-1.0-B has no verified field feedback yet in this dataset version.</p>
       <div class="callout"><b>Rationale</b>A thesis evaluator must see the deployment evidence and its limits side by side. The lab reports are the statistically supported claim (n=200, 50/class); the field numbers are early directional signals whose variance must shrink before they support a conclusion. Verdict cards deliberately display both and label them accordingly.</div>
     </div>
 
     <div class="card">
-      <h2>12.1 The model lifecycle as governance evidence</h2>
+      <h2>13.1 The model lifecycle as governance evidence</h2>
       <ol class="tight">
         <li><span class="code">experimental</span> → <span class="code">evaluated</span> (acceptance verdict computed) → <span class="code">candidate</span> (advisory PASS) → <span class="code">approved</span> → <span class="code">active</span></li>
         <li>Promotion is <strong>manual and audited</strong>: the advisory verdict supports, but never replaces, the expert's decision.</li>
@@ -614,19 +723,19 @@ leafnet/
     </div>
   </section>
 
-  <!-- ============ PANEL 11: DISCUSSION ============ -->
+  <!-- ============ PANEL 12: DISCUSSION ============ -->
   <section class="panel" id="p-discussion">
     <div class="card">
-      <h2>13. Discussion</h2>
+      <h2>14. Discussion</h2>
       <p><strong>Fine-tuning pays.</strong> EXP-1.0-FT outperforms EXP-1.0-B on every metric: +7.0 accuracy points (0.765 → 0.835), +0.069 macro F1 (0.769 → 0.838), worst-class F1 up from 0.627 to 0.709. The pattern — frozen features plus learned task head beats frozen-only — reproduces the transfer-learning literature (Yosinski et al., 2014) and plant-disease precedents (Ferentinos, 2018; Mohanty et al., 2016). The last-five-block partial fine-tune is large enough to adapt high-level features yet keeps 24% of parameters frozen, a deliberately conservative configuration consistent with moderate dataset size and CPU-only training.</p>
       <p><strong class="calm">The healthy class is nearly trivial (perfect P/R/F1)</strong> — expected: healthy leaves are visually homogeneous and well separated from all three diseases. This means the macro bars are effectively decided by the disease classes, exactly the guard the worst-class thresholds were designed to enforce — and the three disease classes clear them with real margin.</p>
-      <p><strong>The spot/blight boundary is the scientific core of the problem.</strong> Blight→spot and spot→rust dominate the error budget. This is not an artifact: the professional literature itself lacks a single crisp rule separating severe leaf spot from bacterial blight on mulberry (Section 6.4; <span class="code">classes.json</span> research_note), and the expert-adjudicated severity analysis confirmed a within-class severity shift for mild blight (Section 11.1). The 0.544 worst-class precision of the baseline on spot is the price of spot being the "catch-all" for blight/rust false positives; fine-tuning raises it to 0.65 while cutting the costliest blight confusions.</p>
+      <p><strong>The spot/blight boundary is the scientific core of the problem.</strong> Blight→spot and spot→rust dominate the error budget. This is not an artifact: the professional literature itself lacks a single crisp rule separating severe leaf spot from bacterial blight on mulberry (Section 6.4; <span class="code">classes.json</span> research_note), and the expert-adjudicated severity analysis confirmed a within-class severity shift for mild blight (Section 12.1). The 0.544 worst-class precision of the baseline on spot is the price of spot being the "catch-all" for blight/rust false positives; fine-tuning raises it to 0.65 while cutting the costliest blight confusions.</p>
       <p><strong>Covariate shift is quantified, not hidden.</strong> Natural-background accuracy (0.780 FT) sits 22 points below the curated-domain ceiling — a mild-to-moderate shift with an actionable mitigation plan (natural-domain sampling, background-aware splits). The macro-F1 on the natural domain is additionally depressed by a structural artifact (healthy has no natural-domain support in this split), which is why the accuracy rows, not the macro rows, are the comparable statistic. This transparency is itself a thesis requirement.</p>
       <p><strong>Confidence is not calibration.</strong> Both models over-express confidence on errors (FT mean 0.648 on errors vs 0.861 on hits), and four FT errors exceeded 0.80 confidence. LEAFNET therefore treats softmax scores as ranking evidence, not probabilities, and routes low-confidence predictions to human review (Guo et al., 2017). The alternative — a calibrated probability readout — is documented future work.</p>
     </div>
 
     <div class="card">
-      <h2>13.1 Statistical and evidentiary caveats (stated, not buried)</h2>
+      <h2>14.1 Statistical and evidentiary caveats (stated, not buried)</h2>
       <ul class="tight">
         <li>At n=200 (50/class), test metrics carry limited statistical power; the pre-registered floor (n ≥ 30) is met with a comfortable margin, and the full-dataset target of n=200 is the designed-evidence level — but individual per-class rates (11 errors on blight, 9–10 on spot/rust) are point estimates that would benefit from a larger test set for finer claims.</li>
         <li>The healthy class contributes no hard evidence (ceiling performance); the informative comparisons are all among the three disease classes.</li>
@@ -637,7 +746,7 @@ leafnet/
     </div>
 
     <div class="card">
-      <h2>13.2 Why this record is defensible</h2>
+      <h2>14.2 Why this record is defensible</h2>
       <ul class="tight">
         <li><strong>Pre-registration:</strong> acceptance thresholds fixed before training, versioned, anchored to Objective 4 metrics.</li>
         <li><strong>One test set, one pass:</strong> no selection by test results, no re-tuning after verdicts.</li>
@@ -649,10 +758,10 @@ leafnet/
     </div>
   </section>
 
-  <!-- ============ PANEL 12: REFERENCES ============ -->
+  <!-- ============ PANEL 13: REFERENCES ============ -->
   <section class="panel" id="p-refs">
     <div class="card refs">
-      <h2>14. References (APA 7th ed.)</h2>
+      <h2>15. References (APA 7th ed.)</h2>
       <p>Arunakumar, G., et al. (2023). Diversity of fungal pathogens in mulberry leaf spot and their symptomatology. <em>BMC</em> (PMC10665727).</p>
       <p>Baiyewu, R. A., et al. (2005). Leaf rust of mulberry (Morus alba) by Cerotelium fici in Nigeria. <em>Pakistan Journal of Plant Pathology</em>.</p>
       <p>Barbedo, J. G. A. (2019). Plant disease identification from individual lesions and spots using deep learning. <em>Biosystems Engineering, 180</em>, 96–107. https://doi.org/10.1016/j.biosystemseng.2019.02.009</p>
@@ -756,6 +865,7 @@ const TABS = [
   ["pre","Preprocessing"],
   ["training","Model & Training"],
   ["eval","Evaluation Gates"],
+  ["testing","Testing & Verification"],
   ["results","Held-Out Results"],
   ["robustness","Distribution Shift"],
   ["field","Field Monitoring"],
