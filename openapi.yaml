@@ -1,0 +1,2105 @@
+openapi: 3.1.0
+info:
+  title: Mulberry Leaf Intelligence API
+  version: 1.0.0
+  summary: Leaf-health classification, dataset curation, annotation and model lifecycle API.
+  description: |
+    The Leafnet API backs the Mulberry Leaf Intelligence platform.
+
+    - **Analysis** — upload a leaf image, run ML classification, request a saliency
+      explanation, and record user feedback.
+    - **Acquire & Label** — single and bulk image ingestion, preliminary labeling,
+      and expert review through an audited state machine.
+    - **Datasets & Models** — dataset version cutting, JSONL manifests, model registry,
+      lifecycle transitions and activation, insights, and production monitoring.
+
+    Authentication uses a bearer session token (`Authorization: Bearer <token>`) or the
+    HttpOnly `leaftoken` cookie set at login. Routes are additionally gated by role
+    (FARMER, RESEARCHER, EXPERT). Pipeline handoff endpoints use `X-Service-Token`.
+
+    This API is a research decision-support tool. Classification output is not a
+    laboratory diagnosis or a definitive determination of biological cause.
+  license:
+    name: Proprietary
+
+servers:
+  - url: http://localhost:4000
+    description: Local development
+  - url: /api
+    description: Same-origin (production reverse proxy)
+
+tags:
+  - name: Health
+  - name: Auth
+  - name: Users
+  - name: Classes
+  - name: Images
+  - name: Annotations
+  - name: Predictions
+  - name: Models
+  - name: Datasets
+  - name: Tools
+  - name: Insights
+  - name: Monitoring
+
+security:
+  - bearerAuth: []
+  - cookieAuth: []
+
+paths:
+  /api/health:
+    get:
+      tags: [Health]
+      summary: Service health
+      security: []
+      responses:
+        "200":
+          description: API is reachable.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /api/auth/login:
+    post:
+      tags: [Auth]
+      summary: Log in with email and password
+      description: Rate-limited to 5 failed attempts per minute per IP. Returns a session token and sets the `leaftoken` cookie.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          description: Too many failed login attempts.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/auth/logout:
+    post:
+      tags: [Auth]
+      summary: Log out and revoke the current session
+      security: []
+      responses:
+        "200":
+          description: Session revoked.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    const: true
+
+  /api/auth/me:
+    get:
+      tags: [Auth]
+      summary: Get the authenticated user
+      responses:
+        "200":
+          description: Current user.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: "#/components/schemas/SessionUser"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/users:
+    get:
+      tags: [Users]
+      summary: List user accounts (EXPERT)
+      description: Requires the `user_admin` capability (EXPERT). Password hashes are never included.
+      responses:
+        "200":
+          description: All accounts.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/User"
+                  count:
+                    type: integer
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [Users]
+      summary: Create a user account (EXPERT)
+      description: No self-registration exists; accounts are created here by experts.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUserRequest"
+      responses:
+        "201":
+          description: Created.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: "#/components/schemas/User"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          description: An account with this email already exists.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/users/{id}:
+    parameters:
+      - $ref: "#/components/parameters/UserId"
+    patch:
+      tags: [Users]
+      summary: Update a user account (EXPERT)
+      description: Experts cannot change their own role/status, and the last ACTIVE EXPERT can never be demoted or disabled.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserRequest"
+      responses:
+        "200":
+          description: Updated.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: "#/components/schemas/User"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          description: Attempted to modify your own role/status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Would remove the last ACTIVE EXPERT.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/users/{id}/password:
+    parameters:
+      - $ref: "#/components/parameters/UserId"
+    post:
+      tags: [Users]
+      summary: Reset a user password (EXPERT)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password]
+              properties:
+                password:
+                  type: string
+                  minLength: 8
+      responses:
+        "200":
+          description: Password reset and audited.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    const: true
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/classes:
+    get:
+      tags: [Classes]
+      summary: List leaf-health class definitions
+      description: Sourced from the ML-side `ml/src/config/classes.json` so frontend, API and ML never drift.
+      responses:
+        "200":
+          description: Class configuration.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClassesConfig"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /api/images:
+    get:
+      tags: [Images]
+      summary: List images
+      description: Requires `view_dataset` (RESEARCHER or EXPERT).
+      parameters:
+        - name: class
+          in: query
+          schema:
+            type: string
+          description: Filter by confirmed classification key.
+        - name: annotationStatus
+          in: query
+          schema:
+            $ref: "#/components/schemas/AnnotationStatus"
+        - name: datasetId
+          in: query
+          schema:
+            type: string
+        - name: fixtures
+          in: query
+          schema:
+            type: string
+            enum: [include, exclude, only]
+            default: exclude
+          description: Whether to include dev fixtures. Research data only by default.
+      responses:
+        "200":
+          description: Up to 200 newest images.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Image"
+                  count:
+                    type: integer
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [Images]
+      summary: Upload and ingest a single image
+      description: Requires `analyze` (any role). Technical validation runs before persisting; exact duplicates are flagged and the original is preserved.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [image]
+              properties:
+                image:
+                  type: string
+                  format: binary
+                source:
+                  type: string
+                sourceType:
+                  type: string
+                collectionSessionId:
+                  type: string
+                farmId:
+                  type: string
+                plantId:
+                  type: string
+                leafId:
+                  type: string
+                license:
+                  type: string
+                isDevFixture:
+                  type: string
+                  enum: ["true", "false"]
+      responses:
+        "201":
+          description: Ingested.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IngestResult"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "415":
+          description: Unsupported image format.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: Invalid or corrupted image content.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /api/images/{id}:
+    parameters:
+      - $ref: "#/components/parameters/ImageId"
+    get:
+      tags: [Images]
+      summary: Get image detail with workflow history
+      responses:
+        "200":
+          description: Image with classifications, annotations, audits and relations.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImageDetail"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [Images]
+      summary: Reject and delete a pending image
+      description: Requires `annotate` (RESEARCHER or EXPERT). Only UNLABELED / NEEDS_REVIEW images not in a cut dataset can be deleted. The rejection is preserved in the system audit trail.
+      parameters:
+        - name: reason
+          in: query
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+      responses:
+        "200":
+          description: Deleted.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  deletedId:
+                    type: string
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Image is labeled or already belongs to a dataset version.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/images/{id}/file:
+    parameters:
+      - $ref: "#/components/parameters/ImageId"
+    get:
+      tags: [Images]
+      summary: Download the stored original image
+      responses:
+        "200":
+          description: Image bytes.
+          content:
+            image/*:
+              schema:
+                type: string
+                format: binary
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/images/{id}/annotations:
+    parameters:
+      - $ref: "#/components/parameters/ImageId"
+    post:
+      tags: [Annotations]
+      summary: Add a preliminary annotation
+      description: Requires `annotate`. Labels are validated against the approved taxonomy; the image moves to ANNOTATED and the action is audited.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PreliminaryAnnotationRequest"
+      responses:
+        "201":
+          description: Annotation created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Annotation"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Invalid state transition for the current annotation status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: Unknown class label.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/images/{id}/review:
+    parameters:
+      - $ref: "#/components/parameters/ImageId"
+    post:
+      tags: [Annotations]
+      summary: Expert review of an image
+      description: Requires `expert_review` (EXPERT). Enforces role, state machine and taxonomy; appends audit entries only.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReviewRequest"
+      responses:
+        "201":
+          description: Review recorded.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    $ref: "#/components/schemas/AnnotationStatus"
+                  finalLabel:
+                    type: [string, "null"]
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Invalid state transition.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: Unknown class label.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/images/{id}/audit:
+    parameters:
+      - $ref: "#/components/parameters/ImageId"
+    get:
+      tags: [Annotations]
+      summary: Get annotation audit history
+      description: Requires `view_dataset`.
+      responses:
+        "200":
+          description: Audit entries (oldest first).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AnnotationAudit"
+                  count:
+                    type: integer
+
+  /api/review/batch-confirm:
+    post:
+      tags: [Annotations]
+      summary: Bulk-confirm pending images
+      description: Requires `expert_review`. Confirms all eligible images (or the supplied IDs). If `label` is given it overrides each image's preliminary label. Failures are reported per image.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BatchConfirmRequest"
+      responses:
+        "201":
+          description: Batch processed.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  confirmed:
+                    type: integer
+                  failed:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        imageId:
+                          type: string
+                        error:
+                          type: string
+                  note:
+                    type: string
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          description: Unknown class label.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/review/batch-confirm-preview:
+    get:
+      tags: [Annotations]
+      summary: Preview the batch-confirm breakdown
+      description: Requires `expert_review`. Counts pending images by status and preliminary label.
+      responses:
+        "200":
+          description: Preview counts.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                  byStatus:
+                    type: object
+                    additionalProperties:
+                      type: integer
+                  byLabel:
+                    type: object
+                    additionalProperties:
+                      type: integer
+
+  /api/predictions:
+    get:
+      tags: [Predictions]
+      summary: List prediction history
+      description: Requires `analyze`. Newest first; placeholder predictions are excluded.
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+      responses:
+        "200":
+          description: Prediction history.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PredictionSummary"
+                  count:
+                    type: integer
+    post:
+      tags: [Predictions]
+      summary: Analyze an image
+      description: Requires `analyze`. Rate-limited to 30 requests/minute/IP. Forwards the stored image to the ML service, validates the response, and persists the prediction with its full probability distribution.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [imageId]
+              properties:
+                imageId:
+                  type: string
+      responses:
+        "201":
+          description: Prediction created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PredictionResult"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          description: Too many requests.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "502":
+          description: ML service returned an invalid response.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "503":
+          description: ML service unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "504":
+          description: Analysis timed out.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/predictions/served:
+    get:
+      tags: [Predictions]
+      summary: Get the served model's class support
+      description: Requires `analyze`. Reports whether the currently served model knows the `not_mulberry` rejection class.
+      responses:
+        "200":
+          description: Served model info.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  modelVersion:
+                    type: [string, "null"]
+                  servedClassCount:
+                    type: integer
+                  classes:
+                    type: array
+                    items:
+                      type: string
+                  rejectionEnabled:
+                    type: boolean
+
+  /api/predictions/{id}:
+    parameters:
+      - $ref: "#/components/parameters/PredictionId"
+    get:
+      tags: [Predictions]
+      summary: Get a prediction
+      responses:
+        "200":
+          description: Prediction with feedback and model version.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Prediction"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/predictions/{id}/explain:
+    parameters:
+      - $ref: "#/components/parameters/PredictionId"
+    post:
+      tags: [Predictions]
+      summary: Request a visual explanation
+      description: Requires `analyze`. Returns a saliency heatmap plus the criteria supporting the prediction.
+      responses:
+        "200":
+          description: Explanation.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExplainResult"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          description: ML service returned an invalid response.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "503":
+          description: ML service unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "504":
+          description: Explanation timed out.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/predictions/{id}/feedback:
+    parameters:
+      - $ref: "#/components/parameters/PredictionId"
+    post:
+      tags: [Predictions]
+      summary: Submit feedback on a prediction
+      description: Requires `analyze`. Stored for expert review; never becomes ground truth automatically.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FeedbackRequest"
+      responses:
+        "201":
+          description: Feedback saved (upserted).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Feedback"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/models:
+    get:
+      tags: [Models]
+      summary: List model versions
+      description: Requires `view_models` (EXPERT). Empty until a model is trained.
+      responses:
+        "200":
+          description: Model versions.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ModelVersion"
+                  count:
+                    type: integer
+                  note:
+                    type: string
+
+  /api/models/{id}/detail:
+    parameters:
+      - $ref: "#/components/parameters/ModelId"
+    get:
+      tags: [Models]
+      summary: Get full performance detail for a model
+      description: Requires `view_models`. Pulls evaluation artifacts and test-split composition from the analytics engine.
+      responses:
+        "200":
+          description: Model detail.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModelDetail"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          description: Analytics service unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/models/{id}/activate:
+    parameters:
+      - $ref: "#/components/parameters/ModelId"
+    post:
+      tags: [Models]
+      summary: Activate a model (EXPERT)
+      description: Requires `model_admin`. The model must be lifecycle `approved`. Activates it in the DB and switches the ML service to serve it; fully audited.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+      responses:
+        "200":
+          description: Activated.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  model_version:
+                    type: string
+                  served_model_version:
+                    type: string
+                  sha256_prefix:
+                    type: string
+                  pilot:
+                    type: boolean
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Model is not in an activatable lifecycle state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "502":
+          description: ML activation failed or was rejected.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "503":
+          description: ML service unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/datasets:
+    get:
+      tags: [Datasets]
+      summary: List dataset versions
+      description: Requires `dataset_admin` (EXPERT).
+      responses:
+        "200":
+          description: Dataset versions with image counts.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Dataset"
+                  count:
+                    type: integer
+
+  /api/datasets/cut:
+    post:
+      tags: [Datasets]
+      summary: Cut a new dataset version
+      description: Requires `dataset_admin`. Membership is all APPROVED non-dev images by default; optional provenance and class selectors refine the cut. Cutting never mutates prior versions.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CutDatasetRequest"
+      responses:
+        "201":
+          description: Dataset version created.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  dataset:
+                    $ref: "#/components/schemas/Dataset"
+                  members:
+                    type: integer
+                  perClass:
+                    type: object
+                    additionalProperties:
+                      type: integer
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          description: Version already exists.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/datasets/status:
+    get:
+      tags: [Datasets]
+      summary: Live dataset composition tracking
+      description: Requires `view_dataset`. Research and dev fixtures are reported separately; fixtures never count toward research targets.
+      responses:
+        "200":
+          description: Composition, balance severity, duplicate flags and active model.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DatasetStatus"
+
+  /api/datasets/{id}/manifest:
+    parameters:
+      - $ref: "#/components/parameters/DatasetId"
+    get:
+      tags: [Datasets]
+      summary: Download a reproducible JSONL manifest
+      description: Requires `dataset_admin`. Includes APPROVED research images only; dev fixtures are excluded. Split assignment is not generated here.
+      responses:
+        "200":
+          description: Newline-delimited JSON, one row per image.
+          content:
+            application/x-ndjson:
+              schema:
+                type: string
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/tools/bulk-ingest:
+    post:
+      tags: [Tools]
+      summary: Bulk-ingest many images
+      description: Requires `bulk_ingest` (RESEARCHER or EXPERT). Accepts up to 500 files plus shared collection metadata; optionally assigns a preliminary label to each through the audited workflow.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [images]
+              properties:
+                images:
+                  type: array
+                  maxItems: 500
+                  items:
+                    type: string
+                    format: binary
+                source:
+                  type: string
+                sourceType:
+                  type: string
+                collectionSessionId:
+                  type: string
+                farmId:
+                  type: string
+                plantId:
+                  type: string
+                leafId:
+                  type: string
+                license:
+                  type: string
+                assignLabel:
+                  type: string
+                isDevFixture:
+                  type: string
+                  enum: ["true", "false"]
+      responses:
+        "201":
+          description: Ingestion summary.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkIngestResult"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "422":
+          description: Unknown class label.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/tools/pipeline/start:
+    post:
+      tags: [Tools]
+      summary: Start a training pipeline job
+      description: Requires `model_admin`. Proxies to the Python ML service, passing the caller's auth token for callbacks.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: Pipeline job accepted.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "503":
+          description: ML service unreachable.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/tools/pipeline/status/{jobId}:
+    parameters:
+      - name: jobId
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      tags: [Tools]
+      summary: Get pipeline job status
+      description: Requires `model_admin`.
+      responses:
+        "200":
+          description: Job status.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "503":
+          description: ML service unreachable.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/tools/pipeline/jobs:
+    get:
+      tags: [Tools]
+      summary: List pipeline jobs
+      description: Requires `model_admin`.
+      responses:
+        "200":
+          description: Pipeline jobs.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "503":
+          description: ML service unreachable.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/tools/models/register:
+    post:
+      tags: [Tools]
+      summary: Register an evaluated model candidate
+      description: Service-to-service endpoint called by the Python pipeline after evaluation. Requires `X-Service-Token` when `SERVICE_TOKEN` is configured. Never sets `isActive` — promotion stays a human decision.
+      security:
+        - serviceToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterModelRequest"
+      responses:
+        "201":
+          description: Registered.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  registered:
+                    type: string
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          description: Invalid service token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Dataset version not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/tools/feedback:
+    get:
+      tags: [Tools]
+      summary: List feedback for review
+      description: Requires `feedback_review` (EXPERT).
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [SUBMITTED, IN_REVIEW, VERIFIED, REJECTED, UNCERTAIN]
+        - name: verdict
+          in: query
+          schema:
+            type: string
+            enum: [agree, disagree, unsure]
+        - name: modelVersion
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Feedback queue (up to 200).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/FeedbackReviewItem"
+                  count:
+                    type: integer
+
+  /api/tools/feedback/{id}/review:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    patch:
+      tags: [Tools]
+      summary: Review a feedback item (EXPERT)
+      description: Requires `feedback_review`. A VERIFIED label becomes candidate training data on the image but is never auto-added to a dataset version.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FeedbackReviewRequest"
+      responses:
+        "200":
+          description: Review recorded.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  reviewStatus:
+                    type: string
+                  verifiedClass:
+                    type: [string, "null"]
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Invalid transition.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/tools/candidates:
+    get:
+      tags: [Tools]
+      summary: List candidate training data
+      description: Requires `feedback_review`. Images with VERIFIED labels from feedback review, eligible for the next dataset cut.
+      responses:
+        "200":
+          description: Candidate rows.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+
+  /api/tools/models/{id}/lifecycle:
+    parameters:
+      - $ref: "#/components/parameters/ModelId"
+    patch:
+      tags: [Tools]
+      summary: Transition a model's lifecycle status (EXPERT)
+      description: Requires `model_admin`. Only APPROVED models may become active; activating deactivates all others.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LifecycleRequest"
+      responses:
+        "200":
+          description: Updated model version.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModelVersion"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Invalid lifecycle transition.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/insights:
+    get:
+      tags: [Insights]
+      summary: Get research and application insights
+      description: Requires `insights` (EXPERT). Research metrics come from the analytics engine; application insights are computed from the application database and kept separate.
+      parameters:
+        - name: dataset_version
+          in: query
+          schema:
+            type: string
+        - name: dataset_id
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Combined insights.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InsightsResponse"
+        "503":
+          description: Analytics service unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/tools/monitoring/summary:
+    get:
+      tags: [Monitoring]
+      summary: Production monitoring summary
+      description: Requires `monitoring` (EXPERT). Aggregates predictions, feedback, verified accuracy and lab-vs-field comparison per model.
+      responses:
+        "200":
+          description: Monitoring summary.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MonitoringSummary"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Session token returned by `POST /api/auth/login`.
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: leaftoken
+      description: HttpOnly session cookie set at login.
+    serviceToken:
+      type: apiKey
+      in: header
+      name: X-Service-Token
+      description: Shared secret for service-to-service pipeline handoff endpoints.
+
+  parameters:
+    ImageId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+    PredictionId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+    ModelId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+    DatasetId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+    UserId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+
+  responses:
+    BadRequest:
+      description: Invalid request.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Unauthorized:
+      description: Authentication required or session invalid/expired.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Forbidden:
+      description: Authenticated role lacks the required capability.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: Resource not found.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    ServerError:
+      description: Unexpected server error.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          example: ok
+        service:
+          type: string
+          example: leafnet-api
+        mlServiceConnected:
+          type: boolean
+        time:
+          type: string
+          format: date-time
+
+    Role:
+      type: string
+      enum: [FARMER, RESEARCHER, EXPERT]
+
+    UserStatus:
+      type: string
+      enum: [ACTIVE, DISABLED]
+
+    SessionUser:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          $ref: "#/components/schemas/Role"
+
+    User:
+      allOf:
+        - $ref: "#/components/schemas/SessionUser"
+        - type: object
+          properties:
+            status:
+              $ref: "#/components/schemas/UserStatus"
+            createdAt:
+              type: [string, "null"]
+              format: date-time
+            updatedAt:
+              type: [string, "null"]
+              format: date-time
+            lastLoginAt:
+              type: [string, "null"]
+              format: date-time
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        user:
+          $ref: "#/components/schemas/SessionUser"
+
+    CreateUserRequest:
+      type: object
+      required: [name, email, password, role]
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        role:
+          $ref: "#/components/schemas/Role"
+
+    UpdateUserRequest:
+      type: object
+      minProperties: 1
+      properties:
+        name:
+          type: string
+        role:
+          $ref: "#/components/schemas/Role"
+        status:
+          $ref: "#/components/schemas/UserStatus"
+
+    ClassesConfig:
+      type: object
+      additionalProperties: true
+      description: Leaf-health class definitions keyed by class name.
+
+    AnnotationStatus:
+      type: string
+      enum:
+        - UNLABELED
+        - ANNOTATED
+        - EXPERT_REVIEWED
+        - SECOND_OPINION
+        - APPROVED
+        - NEEDS_REVIEW
+        - REJECTED
+
+    Classification:
+      type: object
+      properties:
+        classKey:
+          type: string
+        severity:
+          type: [integer, "null"]
+
+    Image:
+      type: object
+      properties:
+        id:
+          type: string
+        filename:
+          type: string
+        storagePath:
+          type: string
+        source:
+          type: [string, "null"]
+        sourceType:
+          type: [string, "null"]
+        backgroundType:
+          type: [string, "null"]
+        license:
+          type: [string, "null"]
+        sha256:
+          type: [string, "null"]
+        annotationStatus:
+          $ref: "#/components/schemas/AnnotationStatus"
+        isDevFixture:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        classifications:
+          type: array
+          items:
+            $ref: "#/components/schemas/Classification"
+
+    ImageDetail:
+      allOf:
+        - $ref: "#/components/schemas/Image"
+        - type: object
+          properties:
+            annotations:
+              type: array
+              items:
+                $ref: "#/components/schemas/Annotation"
+            audits:
+              type: array
+              items:
+                $ref: "#/components/schemas/AnnotationAudit"
+            relationsA:
+              type: array
+              items:
+                type: object
+                additionalProperties: true
+            relationsB:
+              type: array
+              items:
+                type: object
+                additionalProperties: true
+
+    IngestResult:
+      type: object
+      properties:
+        image:
+          $ref: "#/components/schemas/Image"
+        isExactDuplicate:
+          type: boolean
+        note:
+          type: string
+
+    BulkIngestResult:
+      type: object
+      properties:
+        ingested:
+          type: integer
+        duplicatesFlagged:
+          type: integer
+        labeled:
+          type: integer
+        failed:
+          type: integer
+        failures:
+          type: array
+          items:
+            type: object
+            properties:
+              filename:
+                type: string
+              error:
+                type: string
+
+    Annotation:
+      type: object
+      properties:
+        id:
+          type: string
+        imageId:
+          type: string
+        stage:
+          type: string
+          enum: [PRELIMINARY, EXPERT_REVIEW, FINAL_VERIFIED]
+        preliminaryLabel:
+          type: [string, "null"]
+        finalLabel:
+          type: [string, "null"]
+        confidence:
+          type: [number, "null"]
+        severity:
+          type: [integer, "null"]
+        annotator:
+          type: [string, "null"]
+        reviewer:
+          type: [string, "null"]
+        annotatedAt:
+          type: [string, "null"]
+          format: date-time
+        reviewedAt:
+          type: [string, "null"]
+          format: date-time
+        uncertain:
+          type: [boolean, "null"]
+        reviewNotes:
+          type: [string, "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    AnnotationAudit:
+      type: object
+      properties:
+        id:
+          type: string
+        imageId:
+          type: string
+        action:
+          type: string
+        previousLabel:
+          type: [string, "null"]
+        newLabel:
+          type: [string, "null"]
+        previousStatus:
+          type: [string, "null"]
+        newStatus:
+          type: [string, "null"]
+        actor:
+          type: string
+        actorRole:
+          type: string
+        reason:
+          type: [string, "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    PreliminaryAnnotationRequest:
+      type: object
+      required: [label]
+      properties:
+        label:
+          type: string
+        confidence:
+          type: number
+        severity:
+          type: integer
+        notes:
+          type: string
+
+    ReviewRequest:
+      type: object
+      required: [action]
+      properties:
+        action:
+          type: string
+          enum: [confirm, relabel, mark_uncertain, reject, second_opinion]
+        label:
+          type: string
+        reason:
+          type: string
+
+    BatchConfirmRequest:
+      type: object
+      properties:
+        imageIds:
+          type: array
+          items:
+            type: string
+        label:
+          type: string
+
+    Prediction:
+      type: object
+      properties:
+        id:
+          type: string
+        imageId:
+          type: string
+        modelVersionId:
+          type: [string, "null"]
+        predictedClass:
+          type: [string, "null"]
+        confidence:
+          type: [number, "null"]
+        probabilities:
+          type: object
+          additionalProperties:
+            type: number
+        isPlaceholder:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        feedback:
+          $ref: "#/components/schemas/Feedback"
+
+    PredictionSummary:
+      type: object
+      properties:
+        predictionId:
+          type: string
+        imageId:
+          type: string
+        filename:
+          type: string
+        predictedClass:
+          type: [string, "null"]
+        confidence:
+          type: [number, "null"]
+        modelVersion:
+          type: [string, "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    PredictionResult:
+      type: object
+      properties:
+        predictionId:
+          type: string
+        predictedClass:
+          type: string
+        confidence:
+          type: number
+        probabilities:
+          type: object
+          additionalProperties:
+            type: number
+        reviewRecommended:
+          type: boolean
+        modelVersion:
+          type: [string, "null"]
+        disclaimer:
+          type: string
+
+    Feedback:
+      type: object
+      properties:
+        id:
+          type: string
+        predictionId:
+          type: string
+        verdict:
+          type: string
+          enum: [agree, disagree, unsure]
+        isCorrect:
+          type: [boolean, "null"]
+        correctedClass:
+          type: [string, "null"]
+        comment:
+          type: [string, "null"]
+        reviewStatus:
+          type: string
+        reviewer:
+          type: [string, "null"]
+        verifiedClass:
+          type: [string, "null"]
+        reviewedAt:
+          type: [string, "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+
+    FeedbackRequest:
+      type: object
+      required: [verdict]
+      properties:
+        verdict:
+          type: string
+          enum: [agree, disagree, unsure]
+        correctedClass:
+          type: string
+        comment:
+          type: string
+
+    FeedbackReviewItem:
+      type: object
+      properties:
+        feedbackId:
+          type: string
+        verdict:
+          type: string
+        suggestedClass:
+          type: [string, "null"]
+        comment:
+          type: [string, "null"]
+        reviewStatus:
+          type: string
+        reviewer:
+          type: [string, "null"]
+        reviewNotes:
+          type: [string, "null"]
+        verifiedClass:
+          type: [string, "null"]
+        createdAt:
+          type: string
+          format: date-time
+        prediction:
+          type: object
+          properties:
+            id:
+              type: string
+            predictedClass:
+              type: [string, "null"]
+            confidence:
+              type: [number, "null"]
+            probabilities:
+              type: object
+              additionalProperties:
+                type: number
+            imageId:
+              type: string
+            filename:
+              type: string
+            imageUrl:
+              type: string
+            modelVersion:
+              type: [string, "null"]
+
+    FeedbackReviewRequest:
+      type: object
+      required: [action]
+      properties:
+        action:
+          type: string
+          enum: [start_review, verify, verify_corrected, mark_uncertain, reject]
+        verifiedClass:
+          type: string
+        notes:
+          type: string
+
+    ExplainResult:
+      type: object
+      properties:
+        predictedClass:
+          type: string
+        secondClass:
+          type: [string, "null"]
+        saliencyBase64:
+          type: string
+          description: Base64-encoded PNG saliency heatmap.
+        criteria:
+          type: array
+          items:
+            type: object
+            properties:
+              key:
+                type: string
+              label:
+                type: string
+              description:
+                type: string
+              value:
+                oneOf:
+                  - type: string
+                  - type: number
+                  - type: boolean
+              unit:
+                type: string
+              supports:
+                type: string
+                enum: [top, second, inconclusive]
+              supports_class:
+                type: [string, "null"]
+
+    ModelVersion:
+      type: object
+      properties:
+        id:
+          type: string
+        version:
+          type: string
+        architecture:
+          type: [string, "null"]
+        framework:
+          type: [string, "null"]
+        datasetId:
+          type: [string, "null"]
+        artifactPath:
+          type: [string, "null"]
+        lifecycleStatus:
+          type: string
+        isActive:
+          type: boolean
+        accuracy:
+          type: [number, "null"]
+        f1Score:
+          type: [number, "null"]
+        acceptanceVerdict:
+          type: [string, "null"]
+        trainingDate:
+          type: [string, "null"]
+          format: date-time
+        notes:
+          type: [string, "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    ModelDetail:
+      type: object
+      properties:
+        model:
+          type: object
+          additionalProperties: true
+        detail:
+          type: [object, "null"]
+          additionalProperties: true
+        dataset:
+          type: [object, "null"]
+          additionalProperties: true
+        missing:
+          type: [string, "null"]
+
+    RegisterModelRequest:
+      type: object
+      required: [versionLabel, experimentId]
+      properties:
+        versionLabel:
+          type: string
+          description: Dataset version label the model was trained on.
+        experimentId:
+          type: string
+        architecture:
+          type: string
+        framework:
+          type: string
+        trainedAt:
+          type: string
+          format: date-time
+        notes:
+          type: string
+        accuracy:
+          type: number
+        f1Score:
+          type: number
+        confusionMatrix:
+          type: object
+          additionalProperties: true
+        acceptanceVerdict:
+          type: string
+
+    LifecycleRequest:
+      type: object
+      required: [to]
+      properties:
+        to:
+          type: string
+          enum: [candidate, approved, active, retired, rejected]
+        reason:
+          type: string
+
+    Dataset:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        version:
+          type: string
+        status:
+          type: string
+        totalImages:
+          type: integer
+        imagesPerClass:
+          type: object
+          additionalProperties:
+            type: integer
+        splitCounts:
+          type: [object, "null"]
+          additionalProperties: true
+        sources:
+          type: [object, "null"]
+          additionalProperties: true
+        changesFromPrevious:
+          type: [string, "null"]
+        knownIssues:
+          type: [string, "null"]
+        validationStatus:
+          type: [string, "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    CutDatasetRequest:
+      type: object
+      required: [version]
+      properties:
+        version:
+          type: string
+        changes:
+          type: string
+        knownIssues:
+          type: string
+        sources:
+          type: array
+          items:
+            type: string
+        sourceType:
+          type: string
+        additionalApprovedClasses:
+          type: array
+          items:
+            type: string
+
+    DatasetStatus:
+      type: object
+      properties:
+        perClass:
+          type: object
+          additionalProperties:
+            type: object
+            additionalProperties:
+              type: integer
+        openDuplicateFlags:
+          type: integer
+        feedbackCount:
+          type: integer
+        activeModel:
+          type: [object, "null"]
+          additionalProperties: true
+        balanceSummary:
+          type: object
+          properties:
+            totalApproved:
+              type: integer
+            dominantClass:
+              type: [string, "null"]
+            dominantShare:
+              type: integer
+            severity:
+              type: string
+              enum: [unknown, ok, attention, critical]
+            message:
+              type: string
+
+    InsightsResponse:
+      type: object
+      properties:
+        dataset_version:
+          type: string
+        dataset:
+          type: [object, "null"]
+          additionalProperties: true
+        research:
+          type: object
+          additionalProperties: true
+        application:
+          type: object
+          additionalProperties: true
+
+    MonitoringSummary:
+      type: object
+      properties:
+        total_predictions:
+          type: integer
+        baseline_note:
+          type: string
+        lab_vs_field:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        overall:
+          type: object
+          additionalProperties: true
+        by_model:
+          type: object
+          additionalProperties: true
+        real_world_confusion_pairs_verified:
+          type: object
+          additionalProperties:
+            type: integer
+        review_backlog:
+          type: integer
